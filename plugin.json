@@ -1,0 +1,42 @@
+{
+  "name": "data-analysis",
+  "version": "0.2.0",
+  "description": "面向 Excel/CSV 的证据优先数据分析 skill，覆盖异动、漏斗、指标体系、AB 实验、因果、分层、贡献度、比率拆解和行业口径模板，并生成离线 HTML 报告。",
+  "author": {
+    "name": "Codex Data Analysis"
+  },
+  "license": "MIT",
+  "keywords": [
+    "data-analysis",
+    "excel",
+    "csv",
+    "anomaly",
+    "funnel",
+    "ab-test",
+    "causal-inference",
+    "segmentation",
+    "business-analysis",
+    "retail-ecommerce",
+    "internet-saas",
+    "logistics-express",
+    "social-media-content",
+    "education-training",
+    "数据分析",
+    "异动分析",
+    "漏斗分析"
+  ],
+  "skills": [
+    "."
+  ],
+  "requirements": {
+    "python": ">=3.10",
+    "pip": [
+      "pandas>=2.0",
+      "numpy>=1.24",
+      "openpyxl>=3.1"
+    ]
+  },
+  "compatibility": {
+    "codex": ">=1.0"
+  }
+}
