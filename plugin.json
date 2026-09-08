@@ -1,7 +1,7 @@
 {
   "name": "data-analysis",
-  "version": "0.2.0",
-  "description": "面向 Excel/CSV 的证据优先数据分析 skill，覆盖异动、漏斗、指标体系、AB 实验、因果、分层、贡献度、比率拆解和行业口径模板，并生成离线 HTML 报告。",
+  "version": "0.5.0",
+  "description": "面向 Excel/CSV 的模型主导数据分析 skill：模糊问题强制 Grill-Me 反问，正式结论强制 Locator/Mechanism/Falsifier/Reviewer 独立角色工件；报告内容骨架固定为原版六段式，模型自主选择视角与视觉呈现，真实性由 da_verify 门禁约束。",
   "author": {
     "name": "Codex Data Analysis"
   },

@@ -8,9 +8,47 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from statistics import NormalDist
 
-from da_analyze import baseline_for, deviation
 from da_common import choose_date_field, choose_main_table, load_tables, parse_date_series, to_numeric, write_json
+
+
+def baseline_for(
+    values: pd.DataFrame,
+    date_field: str,
+    metric_field_name: str,
+    target: pd.Timestamp,
+    window_days: int = 56,
+    min_same_weekday: int = 2,
+    fallback_rows: int = 28,
+) -> dict:
+    dates = values[date_field]
+    metric = to_numeric(values[metric_field_name])
+    history = values[(dates < target) & (dates >= target - pd.Timedelta(days=window_days))]
+    same_weekday = history[dates.loc[history.index].dt.dayofweek == target.dayofweek]
+    chosen = same_weekday if len(same_weekday) >= min_same_weekday else history.tail(fallback_rows)
+    series = metric.loc[chosen.index] if len(chosen) else metric
+    if series.empty:
+        return {"value": None, "n": 0, "method": "unavailable", "mad": None, "std": None}
+    median = float(series.median())
+    deviation_series = (series - median).abs()
+    mad = float(deviation_series.median()) if not deviation_series.empty else None
+    return {
+        "value": median,
+        "n": int(len(series)),
+        "method": "same_weekday" if len(same_weekday) >= min_same_weekday else "rolling_window",
+        "mad": mad,
+        "std": float(series.std()) if len(series) > 1 else None,
+    }
+
+
+def deviation(value: float | None, baseline: dict, minimum_relative_scale: float = 0.01) -> dict:
+    base = baseline.get("value")
+    if value is None or base is None:
+        return {"delta": None, "relative": None, "robust_z": None}
+    delta = value - base
+    scale = max(float(baseline.get("mad") or 0), float(baseline.get("std") or 0) / 3, abs(base) * minimum_relative_scale, 1e-12)
+    return {"delta": delta, "relative": delta / base if base else None, "robust_z": delta / (1.4826 * scale)}
 
 
 def load_frame(data_path: str, config: dict) -> tuple[pd.DataFrame, str]:
@@ -120,6 +158,10 @@ def op_ab_effect(frame: pd.DataFrame, config: dict) -> dict:
     if control_values.empty or treatment_values.empty:
         raise ValueError("处理组或对照组没有有效样本")
     metric_type = config.get("metric_type", "binary")
+    confidence_level = float(config.get("confidence_level", 0.95))
+    if not 0 < confidence_level < 1:
+        raise ValueError("confidence_level 必须位于 0 和 1 之间")
+    z_critical = NormalDist().inv_cdf(0.5 + confidence_level / 2)
     if metric_type == "binary":
         control_mean, treatment_mean = float(control_values.mean()), float(treatment_values.mean())
         pooled = (control_values.sum() + treatment_values.sum()) / (len(control_values) + len(treatment_values))
@@ -129,8 +171,8 @@ def op_ab_effect(frame: pd.DataFrame, config: dict) -> dict:
         se = math.sqrt(max(control_values.var(ddof=1) / len(control_values) + treatment_values.var(ddof=1) / len(treatment_values), 0))
     effect = treatment_mean - control_mean
     z = effect / se if se else None
-    ci = [effect - 1.96 * se, effect + 1.96 * se] if se else [None, None]
-    return {"op": "ab_effect", "control": {"label": control, "n": len(control_values), "mean": control_mean}, "treatment": {"label": treatment, "n": len(treatment_values), "mean": treatment_mean}, "effect": effect, "ci95": ci, "z": z, "p_value": normal_pvalue(z) if z is not None else None, "metric_type": metric_type}
+    ci = [effect - z_critical * se, effect + z_critical * se] if se else [None, None]
+    return {"op": "ab_effect", "control": {"label": control, "n": len(control_values), "mean": control_mean}, "treatment": {"label": treatment, "n": len(treatment_values), "mean": treatment_mean}, "effect": effect, "ci": ci, "confidence_level": confidence_level, "z": z, "p_value": normal_pvalue(z) if z is not None else None, "metric_type": metric_type}
 
 
 def op_segment_profile(frame: pd.DataFrame, config: dict) -> dict:
@@ -159,10 +201,21 @@ def op_anomaly_scan(frame: pd.DataFrame, config: dict) -> dict:
     work[metric] = to_numeric(work[metric])
     work = work.dropna().groupby(date_field, as_index=False)[metric].sum().sort_values(date_field)
     work["__date"] = work[date_field]
+    baseline_window_days = int(config.get("baseline_window_days", 56))
+    minimum_relative_scale = float(config.get("minimum_relative_scale", 0.01))
     rows = []
     for _, row in work.iterrows():
-        baseline = baseline_for(work, "__date", metric, row["__date"])
-        rows.append({"date": row[date_field].strftime("%Y-%m-%d"), "value": float(row[metric]), "baseline": baseline, "deviation": deviation(float(row[metric]), baseline)})
+        baseline = baseline_for(
+            work,
+            "__date",
+            metric,
+            row["__date"],
+            window_days=baseline_window_days,
+            min_same_weekday=int(config.get("min_same_weekday", 2)),
+            fallback_rows=int(config.get("baseline_fallback_rows", 28)),
+        )
+        deviation_result = deviation(float(row[metric]), baseline, minimum_relative_scale)
+        rows.append({"date": row[date_field].strftime("%Y-%m-%d"), "value": float(row[metric]), "baseline": baseline, "deviation": deviation_result})
     return {"op": "anomaly_scan", "metric": metric, "date_field": date_field, "rows": sorted(rows, key=lambda item: abs(item["deviation"].get("robust_z") or 0), reverse=True)}
 
 
@@ -186,4 +239,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

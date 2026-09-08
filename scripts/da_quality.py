@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -8,7 +9,6 @@ import pandas as pd
 from da_common import (
     choose_date_field,
     choose_main_table,
-    infer_roles,
     load_tables,
     metric_field,
     parse_date_series,
@@ -17,23 +17,75 @@ from da_common import (
 )
 
 
+DEFAULT_MONITORED_ROLES = (
+    "success_rate",
+    "pay_start_rate",
+    "gateway_availability",
+    "inventory_availability",
+    "delay_minutes",
+    "missing_rate",
+    "risk_block_rate",
+)
+
+DEFAULT_QUALITY_POLICY = {
+    "min_sample": 4,
+    "outlier_z": 4.0,
+    "warning_z": 3.0,
+    "missing_rate_floor": 0.05,
+    "delay_exclusion_minutes": 120.0,
+}
+
+
 def date_values(frame: pd.DataFrame, field: str | None) -> pd.Series:
     if not field:
         return pd.Series(dtype="datetime64[ns]")
     return parse_date_series(frame[field]).dt.normalize()
 
 
-def quality_gate(profile: dict, data_path: str) -> dict:
+def merged_quality_policy(contract: dict | None) -> dict:
+    policy = DEFAULT_QUALITY_POLICY.copy()
+    overrides = contract.get("quality") if isinstance(contract, dict) else None
+    if isinstance(overrides, dict):
+        for key in policy:
+            if key in overrides:
+                policy[key] = float(overrides[key])
+    return policy
+
+
+def contract_mappings(contract: dict) -> tuple[dict, str | None]:
+    fields = contract.get("fields", {})
+    if not isinstance(fields, dict):
+        raise ValueError("语义合同 fields 必须是对象")
+    metric_fields = contract.get("metric_fields")
+    if metric_fields is None:
+        metric_fields = {role: field for role, field in fields.items() if role != "date"}
+    if not isinstance(metric_fields, dict):
+        raise ValueError("语义合同 metric_fields 必须是对象")
+    date_field = contract.get("date_field") or fields.get("date")
+    if date_field is not None and not isinstance(date_field, str):
+        raise ValueError("语义合同 date_field 必须是字符串")
+    return metric_fields, date_field
+
+
+def quality_gate(profile: dict, data_path: str, contract: dict | None = None) -> dict:
     tables = load_tables(data_path)
-    main_name = profile.get("main_table") or choose_main_table(tables)
+    if contract is not None and not isinstance(contract, dict):
+        raise ValueError("语义合同必须是 JSON 对象")
+    contract = contract or {}
+    main_name = contract.get("main_table") or profile.get("main_table") or choose_main_table(tables)
+    if main_name not in tables:
+        raise ValueError(f"找不到主表：{main_name}")
     main = tables[main_name]
+    policy = merged_quality_policy(contract)
+    metric_fields, contract_date_field = contract_mappings(contract)
+    metric_contract = {"fields": metric_fields}
+    monitored_roles = list(metric_fields) or list(DEFAULT_MONITORED_ROLES)
     flags = []
     excluded_dates: set[str] = set()
     key_fields = []
     for sheet_name, table in tables.items():
         frame = table["frame"]
-        roles = infer_roles([str(column) for column in frame.columns])
-        date_field = choose_date_field(frame)
+        date_field = contract_date_field if contract_date_field in frame.columns else choose_date_field(frame)
         dates = date_values(frame, date_field)
         if date_field and not dates.empty:
             duplicate_count = int(dates.duplicated().sum())
@@ -71,15 +123,15 @@ def quality_gate(profile: dict, data_path: str) -> dict:
                     "missing_rate": missing_rate,
                     "message": "字段缺失比例较高，相关指标需要降级或排除。",
                 })
-        for role in ["success_rate", "pay_start_rate", "gateway_availability", "inventory_availability", "delay_minutes", "missing_rate", "risk_block_rate"]:
-            field = metric_field(table, role)
+        for role in monitored_roles:
+            field = metric_field(table, role, metric_contract)
             if field:
                 key_fields.append({"sheet": sheet_name, "role": role, "field": field})
                 values = pd.to_numeric(frame[field], errors="coerce")
                 stats = robust_stats(values)
-                if stats["n"] >= 4 and stats["mad"] is not None:
+                if stats["n"] >= policy["min_sample"] and stats["mad"] is not None:
                     scale = max(float(stats["mad"] or 0), float(stats["std"] or 0) / 3, 1e-12)
-                    high = values[(values - float(stats["median"])) / (1.4826 * scale) > 4]
+                    high = values[(values - float(stats["median"])) / (1.4826 * scale) > policy["outlier_z"]]
                     if len(high):
                         high_dates = dates.loc[high.index] if len(dates) else pd.Series(dtype="datetime64[ns]")
                         rows = [value.strftime("%Y-%m-%d") for value in high_dates.dropna().unique()]
@@ -97,24 +149,39 @@ def quality_gate(profile: dict, data_path: str) -> dict:
                     if values.notna().any() and stats["median"] is not None:
                         scale = max(float(stats["mad"] or 0), float(stats["std"] or 0) / 3, 1e-12)
                         if role == "delay_minutes":
-                            threshold = float(stats["median"]) + 3 * 1.4826 * scale
+                            threshold = float(stats["median"]) + policy["warning_z"] * 1.4826 * scale
                         else:
-                            threshold = max(0.05, float(stats["median"]) + 3 * 1.4826 * scale)
+                            threshold = max(policy["missing_rate_floor"], float(stats["median"]) + policy["warning_z"] * 1.4826 * scale)
                         unusual = values[values > threshold]
                         unusual_dates = dates.loc[unusual.index] if len(dates) else pd.Series(dtype="datetime64[ns]")
-                        should_exclude = role == "missing_rate" or (role == "delay_minutes" and threshold >= 120)
+                        should_exclude = role == "missing_rate" or (
+                            role == "delay_minutes" and threshold >= policy["delay_exclusion_minutes"]
+                        )
                         if should_exclude:
                             for date in unusual_dates.dropna().unique():
                                 excluded_dates.add(date.strftime("%Y-%m-%d"))
-    for field_role in ["success_rate", "pay_start_rate", "gateway_availability"]:
-        field = metric_field(main, field_role)
-        if field:
-            key_fields.append({"sheet": main_name, "role": field_role, "field": field})
-            missing = main["frame"][field].isna()
-            date_field = choose_date_field(main["frame"])
-            dates = date_values(main["frame"], date_field)
-            for date in dates.loc[missing].dropna().unique():
-                excluded_dates.add(date.strftime("%Y-%m-%d"))
+                if sheet_name == main_name and values.isna().any() and date_field:
+                    for date in dates.loc[values.isna()].dropna().unique():
+                        excluded_dates.add(date.strftime("%Y-%m-%d"))
+    for role, field in metric_fields.items():
+        if field not in main["frame"].columns:
+            flags.append({
+                "type": "missing_contract_field",
+                "severity": "error",
+                "sheet": main_name,
+                "role": role,
+                "field": str(field),
+                "message": "语义合同指定字段不存在，质量门禁不会回退到名称相似字段。",
+            })
+    if contract_date_field and contract_date_field not in main["frame"].columns:
+        flags.append({
+            "type": "missing_contract_field",
+            "severity": "error",
+            "sheet": main_name,
+            "role": "date",
+            "field": contract_date_field,
+            "message": "语义合同指定日期字段不存在，质量门禁不会回退到名称相似字段。",
+        })
     if not any(flag["severity"] == "error" for flag in flags):
         status = "DEGRADED" if flags else "PASS"
     else:
@@ -129,6 +196,8 @@ def quality_gate(profile: dict, data_path: str) -> dict:
         "policy": {
             "excluded_dates_are_not_used_for_business_anomaly": True,
             "ratio_is_recomputed_from_numerator_denominator_when_available": True,
+            "monitored_roles_source": "semantic_contract" if metric_fields else "name_inference_fallback",
+            **policy,
         },
         "summary": {
             "flag_count": len(flags),
@@ -142,12 +211,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="数据质量门禁")
     parser.add_argument("--profile", required=True)
     parser.add_argument("--data", required=True)
+    parser.add_argument("--contract", help="语义合同 JSON；提供后仅检查显式字段，不回退名称推断")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
-    import json
-
     profile = json.loads(Path(args.profile).read_text(encoding="utf-8"))
-    write_json(args.out, quality_gate(profile, args.data))
+    contract = json.loads(Path(args.contract).read_text(encoding="utf-8")) if args.contract else None
+    write_json(args.out, quality_gate(profile, args.data, contract))
 
 
 if __name__ == "__main__":

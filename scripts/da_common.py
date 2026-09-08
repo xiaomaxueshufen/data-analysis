@@ -206,8 +206,8 @@ def metric_field(table: dict[str, Any], role: str, contract: dict[str, Any] | No
     contract = contract or {}
     fields = contract.get("fields", {}) if isinstance(contract, dict) else {}
     explicit = fields.get(role) if isinstance(fields, dict) else None
-    if explicit and explicit in table["frame"].columns:
-        return explicit
+    if explicit is not None:
+        return explicit if explicit in table["frame"].columns else None
     roles = infer_roles([str(c) for c in table["frame"].columns])
     candidates = roles.get(role, [])
     if candidates:
