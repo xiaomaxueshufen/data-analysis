@@ -81,7 +81,7 @@ outputs/<run>/
 ├── claims.json
 ├── variation.json
 ├── da_verify.json（发布前真实性检查结果）
-└── report.html（必交交付物；降级 / 失败模式下也必须存在）
+└── report.html
 ```
 
 文件名只是建议，不是固定流水线；模型按本次分析的需要增删工件。但 `report.html` 与 `da_verify.json` 不可省略。
