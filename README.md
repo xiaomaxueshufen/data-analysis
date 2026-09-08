@@ -84,7 +84,7 @@ outputs/<run>/
 └── report.html
 ```
 
-文件名只是建议，不是固定流水线；模型按本次分析的需要增删工件。但 `report.html` 与 `da_verify.json` 不可省略。
+文件名只是建议，不是固定值；模型按本次分析的需要增删工件。但 `report.html` 与 `da_verify.json` 不可省略。
 
 ## 在 Codex 中安装
 
