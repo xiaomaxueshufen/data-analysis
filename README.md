@@ -50,7 +50,7 @@
   → 模型自主分析（现场代码 + 可选算子复核）
   → 独立角色分析（Locator/Mechanism/Falsifier/Reviewer 工件）
   → 结论分级与真实性检查（da_verify）
-  → 模型亲自撰写离线 HTML 报告
+  → 撰写离线 HTML 报告
 ```
 
 运行工件保存为：
