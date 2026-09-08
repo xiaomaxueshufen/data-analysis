@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>移动应用增长复盘：购买金额上行，3.2.0 效率与稳定性承压</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f2428;
+      --muted: #5b6670;
+      --line: #d7e8f2;
+      --primary: #3178a6;
+      --primary-soft: #e7f2f8;
+      --risk: #c9484f;
+      --risk-soft: #fdeeee;
+      --good: #30725f;
+      --good-soft: #eaf5f1;
+      --paper: #ffffff;
+      --canvas: #edf5f9;
+      --code: #123;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.72;
+      font-size: 16px;
+    }
+    .skip { position: absolute; left: -9999px; }
+    .skip:focus { left: 16px; top: 16px; z-index: 20; background: #fff; padding: 8px 12px; border: 2px solid var(--primary); }
+    .page { max-width: 1120px; margin: 0 auto; background: var(--paper); border-top: 6px solid var(--primary); }
+    header.masthead { padding: 42px 48px 30px; border-bottom: 1px solid var(--line); }
+    .eyebrow { color: var(--primary); font-weight: 750; letter-spacing: .12em; font-size: 13px; text-transform: uppercase; }
+    h1 { margin: 10px 0 14px; font-size: clamp(28px, 4vw, 44px); line-height: 1.18; letter-spacing: -.02em; }
+    .lede { max-width: 850px; color: var(--muted); font-size: 18px; }
+    .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 28px; }
+    .meta-item { background: #fff; padding: 14px 16px; }
+    .meta-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+    .meta-value { font-weight: 750; margin-top: 3px; }
+    nav.toc { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 48px; border-bottom: 1px solid var(--line); background: #fbfdfe; position: sticky; top: 0; z-index: 10; }
+    nav.toc a { color: var(--ink); text-decoration: none; font-size: 14px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; }
+    nav.toc a:hover { border-color: var(--primary); color: var(--primary); }
+    main { padding: 0 48px 56px; }
+    section { padding: 38px 0 30px; border-bottom: 1px solid var(--line); scroll-margin-top: 82px; }
+    section:last-of-type { border-bottom: 0; }
+    h2 { margin: 0 0 18px; font-size: clamp(22px, 2.6vw, 30px); letter-spacing: -.01em; }
+    h3 { margin: 30px 0 12px; font-size: 19px; }
+    .number { font-variant-numeric: tabular-nums; }
+    .finding-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+    .finding { border: 1px solid var(--line); border-left: 5px solid var(--primary); padding: 18px 20px; background: #fff; }
+    .finding.risk { border-left-color: var(--risk); background: var(--risk-soft); }
+    .finding.good { border-left-color: var(--good); background: var(--good-soft); }
+    .finding h3 { margin: 0 0 8px; font-size: 17px; }
+    .finding p { margin: 0; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .chip { font-size: 12px; color: var(--muted); border: 1px solid var(--line); padding: 2px 7px; border-radius: 999px; background: #fff; }
+    .grid-2 { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(260px, .8fr); gap: 28px; align-items: start; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th, td { border-bottom: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+    thead th { background: #f5fafd; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+    tbody tr:hover { background: #fafcfe; }
+    .metric-table td:nth-child(n+2), .metric-table th:nth-child(n+2) { text-align: right; }
+    figure { margin: 0; border: 1px solid var(--line); background: #fff; padding: 18px; }
+    figcaption { margin-top: 12px; color: var(--muted); font-size: 14px; }
+    svg { width: 100%; height: auto; display: block; overflow: visible; }
+    .chart-backdrop { fill: #fff; }
+    .chart-title { font-size: 17px; font-weight: 750; fill: var(--ink); }
+    .chart-label { font-size: 14px; fill: var(--ink); font-weight: 650; }
+    .bar-old { fill: #89a8b9; }
+    .bar-new { fill: var(--primary); }
+    .bar-risk { fill: var(--risk); }
+    .bar-muted { fill: #a8b7bf; }
+    .bar-primary { fill: var(--primary); }
+    .bar-value { font-size: 13px; fill: var(--ink); font-weight: 650; }
+    .legend text { font-size: 13px; fill: var(--muted); }
+    .chart-note { font-size: 12px; fill: var(--muted); }
+    .trend-line { fill: none; stroke: var(--primary); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+    .point-primary { fill: var(--primary); }
+    .point-risk { fill: var(--risk); }
+    .point-label { font-size: 12px; fill: var(--ink); font-weight: 700; text-anchor: middle; }
+    .point-value { fill: var(--muted); font-weight: 500; }
+    .grid { stroke: #e4eef4; stroke-width: 1; }
+    .axis { stroke: #b9cad5; stroke-width: 1; }
+    .axis-label { font-size: 12px; fill: var(--muted); }
+    .callout { border-left: 5px solid var(--risk); background: var(--risk-soft); padding: 16px 18px; margin-top: 18px; }
+    .callout strong { color: #97292f; }
+    .decision-tree { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-top: 18px; }
+    .decision { border: 1px solid var(--line); padding: 16px; background: #fbfdfe; }
+    .decision h4 { margin: 0 0 8px; font-size: 15px; }
+    .decision p { margin: 0; font-size: 14px; color: var(--muted); }
+    details { border: 1px solid var(--line); padding: 12px 16px; background: #fbfdfe; margin-top: 16px; }
+    summary { cursor: pointer; font-weight: 700; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; color: var(--code); }
+    .status-pass { color: var(--good); font-weight: 750; }
+    .status-review { color: #966318; font-weight: 750; }
+    footer { padding: 22px 48px 38px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
+    @media (max-width: 900px) {
+      header.masthead, main, nav.toc, footer { padding-left: 22px; padding-right: 22px; }
+      .meta-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .finding-grid, .grid-2, .decision-tree { grid-template-columns: 1fr; }
+      main { padding-bottom: 34px; }
+    }
+    @media (max-width: 560px) {
+      .meta-grid { grid-template-columns: 1fr; }
+      th, td { padding: 8px; font-size: 14px; }
+    }
+    @media print {
+      body { background: #fff; }
+      nav.toc { display: none; }
+      .page { border-top-width: 3px; }
+      section { break-inside: avoid; }
+      figure { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#core-findings">跳到核心发现</a>
+  <div class="page">
+    <header class="masthead">
+      <div class="eyebrow">移动应用增长复盘</div>
+      <h1>购买金额上行，<span class="number">3.2.0</span> 效率与稳定性承压</h1>
+      <p class="lede">这版报告以机制与反证为主线：先定位版本、渠道和单日事故中的同步变化，再检查哪些解释会被数据推翻。</p>
+      <div class="meta-grid">
+        <div class="meta-item"><div class="meta-label">观察窗</div><div class="meta-value number">2026-06-10 至 2026-09-07</div></div>
+        <div class="meta-item"><div class="meta-label">主指标</div><div class="meta-value">购买转化率、购买金额</div></div>
+        <div class="meta-item"><div class="meta-label">数据质量</div><div class="meta-value status-review">需复核：2 行会话缺失</div></div>
+        <div class="meta-item"><div class="meta-label">来源</div><div class="meta-value"><code>mobile_app_analytics_sim.csv</code></div></div>
+      </div>
+    </header>
+    <nav class="toc" aria-label="报告目录">
+      <a href="#core-findings">核心发现</a><a href="#background">背景与目标</a><a href="#data-profile">数据概况</a><a href="#deep-analysis">深入分析</a><a href="#conclusion">结论与建议</a><a href="#appendix">附录</a>
+    </nav>
+    <main>
+      <section id="core-findings" aria-labelledby="core-findings-title">
+        <h2 id="core-findings-title">核心发现</h2>
+        <div class="finding-grid">
+          <article class="finding risk"><h3>1. 3.2.0 同窗口效率显著承压</h3><p>加购→购买转化率 <strong class="number">34.70%</strong>，低于 3.1.2 的 <strong class="number">44.66%</strong>；D1 留存低 <strong class="number">4.064</strong> 个百分点，崩溃率高 <strong class="number">2.772</strong> 个百分点。</p><div class="chips"><span class="chip">证据 E006</span><span class="chip">限制：非随机实验</span></div></article>
+          <article class="finding good"><h3>2. 自然量渠道价值最高</h3><p>自然量占 DAU <strong class="number">29.60%</strong>，贡献购买金额 <strong class="number">50.32%</strong>，ARPPU <strong class="number">209.97</strong>。</p><div class="chips"><span class="chip">证据 E005</span><span class="chip">限制：无渠道花费</span></div></article>
+          <article class="finding risk"><h3>3. 信息流高流量低价值</h3><p>信息流占 DAU <strong class="number">34.70%</strong>，仅贡献购买金额 <strong class="number">15.19%</strong>，ARPPU <strong class="number">94.80</strong>。</p><div class="chips"><span class="chip">证据 E005</span><span class="chip">限制：不能计算 ROI</span></div></article>
+          <article class="finding risk"><h3>4. 8 月 28 日信息流零购买</h3><p>当天信息流加购 <strong class="number">165</strong> 人、购买 <strong class="number">0</strong> 人、金额 <strong class="number">0</strong>；前一天与后一天均有购买。</p><div class="chips"><span class="chip">证据 E007</span><span class="chip">候选：支付或埋点事故</span></div></article>
+          <article class="finding"><h3>5. 整体量升率降</h3><p>末期窗口购买金额 <strong class="number">298,399.59</strong>，高于首期 <strong class="number">274,649.04</strong>；但日转化率与 D1 留存斜率为负。</p><div class="chips"><span class="chip">证据 E004</span><span class="chip">限制：趋势不等于原因</span></div></article>
+        </div>
+      </section>
+      <section id="background" aria-labelledby="background-title">
+        <h2 id="background-title">分析背景与目标</h2>
+        <div class="grid-2">
+          <div>
+            <p>本次复盘面向渠道与版本的综合增长决策：既要识别收入贡献结构，也要判断 <strong>3.2.0</strong> 是否存在可验证的效率与稳定性风险。主指标为加购→购买转化率和购买金额；D1 留存、崩溃率、ANR 率作为护栏。</p>
+            <p>比较基线包括全周期趋势、首尾窗口、渠道/平台/版本分层，以及 2026-08-20 后两个版本的同窗口对照。由于缺少随机分配、支付日志和活动事件表，本报告只输出高置信候选与验证动作，不输出因果结论。</p>
+          </div>
+          <table class="metric-table"><caption class="skip">关键指标</caption><thead><tr><th scope="col">指标</th><th scope="col">全周期</th></tr></thead><tbody><tr><th scope="row">购买金额</th><td>4,082,822.89</td></tr><tr><th scope="row">加购→购买</th><td>43.39%</td></tr><tr><th scope="row">ARPPU</th><td>158.47</td></tr><tr><th scope="row">D1 留存</th><td>31.31%</td></tr><tr><th scope="row">崩溃率</th><td>0.88%</td></tr></tbody></table>
+        </div>
+      </section>
+      <section id="data-profile" aria-labelledby="data-profile-title">
+        <h2 id="data-profile-title">数据概况</h2>
+        <div class="grid-2">
+          <table><thead><tr><th scope="col">项目</th><th scope="col">结果</th></tr></thead><tbody>
+            <tr><th scope="row">数据规模</th><td>872 行 / 16 列 / 90 天</td></tr>
+            <tr><th scope="row">平台</th><td>Android、iOS</td></tr>
+            <tr><th scope="row">渠道</th><td>KOL合作、信息流、应用商店、自然量</td></tr>
+            <tr><th scope="row">版本</th><td>3.1.2、3.2.0</td></tr>
+            <tr><th scope="row">缺失</th><td>sessions 与 session_minutes 各 2 行，发生在 2026-08-14 应用商店 Android/iOS</td></tr>
+            <tr><th scope="row">重复与负值</th><td>关键键重复 0 个；负值 0 个</td></tr>
+            <tr><th scope="row">注册口径</th><td>signup_users 大于 new_users 的行有 443 行，不能解释为“仅新用户注册”</td></tr>
+          </tbody></table>
+          <div class="callout"><strong>质量处理</strong><p>缺失会话行不参与会话量、人均会话、时长、崩溃率和 ANR 率；仍参与购买、用户、留存与漏斗指标。全周期结论因此保留 872 行，但会话类指标覆盖 870 行。</p></div>
+        </div>
+      </section>
+      <section id="deep-analysis" aria-labelledby="deep-analysis-title">
+        <h2 id="deep-analysis-title">深入分析</h2>
+        <h3>机制一：版本同窗口对照</h3>
+        <div class="grid-2">
+          <figure>
+      <svg viewBox="0 0 900 310" role="img" aria-label="同窗口版本对照：3.2.0 的购买转化率和D1留存低于3.1.2，崩溃率高于3.1.2。">
+        <rect x="0" y="0" width="900" height="310" class="chart-backdrop"></rect>
+        <text x="0" y="16" class="chart-title">同窗口版本对照：3.1.2 vs 3.2.0</text>
+        
+          <g class="chart-row">
+            <text x="0" y="36" class="chart-label">加购→购买转化率</text>
+            <rect x="180" y="14" width="457.6" height="18" rx="4" class="bar-old"></rect>
+            <text x="647.6" y="28" class="bar-value">44.66%</text>
+            <rect x="180" y="40" width="355.6" height="18" rx="4" class="bar-risk"></rect>
+            <text x="545.6" y="54" class="bar-value">34.70%</text>
+          </g>
+          <g class="chart-row">
+            <text x="0" y="128" class="chart-label">D1 留存率</text>
+            <rect x="180" y="106" width="457.6" height="18" rx="4" class="bar-old"></rect>
+            <text x="647.6" y="120" class="bar-value">31.85%</text>
+            <rect x="180" y="132" width="399.1" height="18" rx="4" class="bar-risk"></rect>
+            <text x="589.1" y="146" class="bar-value">27.78%</text>
+          </g>
+          <g class="chart-row">
+            <text x="0" y="220" class="chart-label">崩溃率</text>
+            <rect x="180" y="198" width="63.9" height="18" rx="4" class="bar-old"></rect>
+            <text x="253.9" y="212" class="bar-value">0.45%</text>
+            <rect x="180" y="224" width="457.6" height="18" rx="4" class="bar-risk"></rect>
+            <text x="647.6" y="238" class="bar-value">3.22%</text>
+          </g>
+        <g class="legend">
+          <rect x="180" y="284" width="12" height="12" class="bar-old"></rect><text x="198" y="294">3.1.2</text>
+          <rect x="260" y="284" width="12" height="12" class="bar-new"></rect><text x="278" y="294">3.2.0</text>
+          <rect x="340" y="284" width="12" height="12" class="bar-risk"></rect><text x="358" y="294">风险方向</text>
+        </g>
+        <text x="770" y="294" class="chart-note">窗口：2026-08-20 至 09-07</text>
+      </svg><figcaption>解读：3.2.0 在购买转化、D1 留存和崩溃率上均处于风险方向；这是高置信同步差异，尚不能判定因果。</figcaption></figure>
+          <table class="metric-table"><thead><tr><th scope="col">指标</th><th scope="col">3.1.2</th><th scope="col">3.2.0</th></tr></thead><tbody>
+            <tr><th scope="row">购买金额</th><td>361,557.73</td><td>496,815.64</td></tr>
+            <tr><th scope="row">购买用户</th><td>2,292</td><td>3,045</td></tr>
+            <tr><th scope="row">DAU</th><td>55,283</td><td>104,158</td></tr>
+            <tr><th scope="row">ARPPU</th><td>157.75</td><td>163.16</td></tr>
+            <tr><th scope="row">ANR 率</th><td>0.16%</td><td>0.63%</td></tr>
+          </tbody></table>
+        </div>
+        <h3>机制二：渠道价值错位</h3>
+        <div class="grid-2">
+          <figure>
+      <svg viewBox="0 0 900 310" role="img" aria-label="渠道结构：自然量以较低DAU占比贡献最高购买金额，信息流相反。">
+        <rect x="0" y="0" width="900" height="310" class="chart-backdrop"></rect>
+        <text x="0" y="18" class="chart-title">渠道错位：DAU 占比 vs 购买金额占比</text>
+        
+          <g class="chart-row">
+            <text x="0" y="44" class="chart-label">自然量</text>
+            <rect x="130" y="23" width="269.1" height="16" rx="4" class="bar-muted"></rect>
+            <text x="409.1" y="36" class="bar-value">29.60%</text>
+            <rect x="130" y="47" width="457.5" height="16" rx="4" class="bar-primary"></rect>
+            <text x="597.5" y="60" class="bar-value">50.32%</text>
+          </g>
+          <g class="chart-row">
+            <text x="0" y="106" class="chart-label">应用商店</text>
+            <rect x="130" y="85" width="226.9" height="16" rx="4" class="bar-muted"></rect>
+            <text x="366.9" y="98" class="bar-value">24.96%</text>
+            <rect x="130" y="109" width="252.2" height="16" rx="4" class="bar-primary"></rect>
+            <text x="392.2" y="122" class="bar-value">27.74%</text>
+          </g>
+          <g class="chart-row">
+            <text x="0" y="168" class="chart-label">信息流</text>
+            <rect x="130" y="147" width="315.5" height="16" rx="4" class="bar-muted"></rect>
+            <text x="455.5" y="160" class="bar-value">34.70%</text>
+            <rect x="130" y="171" width="138.1" height="16" rx="4" class="bar-primary"></rect>
+            <text x="278.1" y="184" class="bar-value">15.19%</text>
+          </g>
+          <g class="chart-row">
+            <text x="0" y="230" class="chart-label">KOL合作</text>
+            <rect x="130" y="209" width="97.6" height="16" rx="4" class="bar-muted"></rect>
+            <text x="237.6" y="222" class="bar-value">10.74%</text>
+            <rect x="130" y="233" width="61.4" height="16" rx="4" class="bar-primary"></rect>
+            <text x="201.4" y="246" class="bar-value">6.75%</text>
+          </g>
+        <g class="legend">
+          <rect x="130" y="284" width="12" height="12" class="bar-muted"></rect><text x="148" y="294">DAU 占比</text>
+          <rect x="240" y="284" width="12" height="12" class="bar-primary"></rect><text x="258" y="294">购买金额占比</text>
+        </g>
+        <text x="650" y="294" class="chart-note">全周期：2026-06-10 至 09-07</text>
+      </svg><figcaption>解读：自然量的购买金额份额明显高于 DAU 份额；信息流相反，说明价值差异主要来自上游质量与 ARPPU，而不是结算转化。</figcaption></figure>
+          <table class="metric-table"><thead><tr><th scope="col">渠道</th><th scope="col">ARPPU</th><th scope="col">D1</th><th scope="col">加购→购买</th></tr></thead><tbody>
+            <tr><th scope="row">KOL合作</th><td>118.76</td><td>27.40%</td><td>43.55%</td></tr><tr><th scope="row">信息流</th><td>94.80</td><td>21.35%</td><td>43.15%</td></tr><tr><th scope="row">应用商店</th><td>159.13</td><td>34.57%</td><td>43.20%</td></tr><tr><th scope="row">自然量</th><td>209.97</td><td>41.60%</td><td>43.65%</td></tr>
+          </tbody></table>
+        </div>
+        <h3>机制三：单日零购买事故</h3>
+        <div class="grid-2">
+          <table><thead><tr><th scope="col">日期</th><th scope="col">加购</th><th scope="col">购买</th><th scope="col">金额</th><th scope="col">转化率</th></tr></thead><tbody>
+            <tr><th scope="row">2026-08-27</th><td>157</td><td>62</td><td>6,002.70</td><td>39.49%</td></tr>
+            <tr><th scope="row">2026-08-28</th><td>165</td><td>0</td><td>0.00</td><td>0.00%</td></tr>
+            <tr><th scope="row">2026-08-29</th><td>236</td><td>86</td><td>8,224.40</td><td>36.44%</td></tr>
+          </tbody></table>
+          <div class="callout"><strong>反证</strong><p>8 月 28 日信息流在 Android/iOS 与 3.1.2/3.2.0 组合下购买均为 0。版本单独无法解释该日异常；支付链路中断或购买埋点置空是更高优先级的候选。</p></div>
+        </div>
+        <h3>机制四：量升率降</h3>
+        <figure>
+      <svg viewBox="0 0 900 340" role="img" aria-label="日购买金额趋势：整体上行，7月19日和8月1日为高值日，8月28日为低值异常日。">
+        <rect x="0" y="0" width="900" height="340" class="chart-backdrop"></rect>
+        <text x="0" y="16" class="chart-title">日购买金额趋势</text>
+        <line x1="58" y1="292.0" x2="858" y2="292.0" class="grid"></line><text x="0" y="296.0" class="axis-label">33,405</text><line x1="58" y1="226.5" x2="858" y2="226.5" class="grid"></line><text x="0" y="230.5" class="axis-label">41,459</text><line x1="58" y1="161.0" x2="858" y2="161.0" class="grid"></line><text x="0" y="165.0" class="axis-label">49,513</text><line x1="58" y1="95.5" x2="858" y2="95.5" class="grid"></line><text x="0" y="99.5" class="axis-label">57,568</text><line x1="58" y1="30.0" x2="858" y2="30.0" class="grid"></line><text x="0" y="34.0" class="axis-label">65,622</text>
+        <polyline points="58.0,243.7 67.0,284.0 76.0,272.6 85.0,176.8 94.0,197.2 102.9,256.3 111.9,281.5 120.9,255.0 129.9,251.0 138.9,246.6 147.9,171.8 156.9,138.0 165.9,270.6 174.9,228.0 183.8,292.0 192.8,265.2 201.8,257.7 210.8,154.7 219.8,148.5 228.8,246.4 237.8,207.6 246.8,217.0 255.8,227.8 264.7,235.2 273.7,135.1 282.7,173.0 291.7,224.1 300.7,240.9 309.7,240.6 318.7,204.4 327.7,234.3 336.7,83.6 345.6,165.7 354.6,185.5 363.6,237.6 372.6,269.1 381.6,186.0 390.6,179.7 399.6,95.4 408.6,41.8 417.6,170.4 426.5,196.7 435.5,223.8 444.5,147.2 453.5,215.9 462.5,147.5 471.5,156.3 480.5,226.0 489.5,228.2 498.4,220.6 507.4,177.1 516.4,219.8 525.4,30.0 534.4,137.7 543.4,173.7 552.4,170.2 561.4,118.4 570.4,166.8 579.3,208.5 588.3,96.5 597.3,150.1 606.3,215.6 615.3,208.1 624.3,170.8 633.3,155.8 642.3,178.0 651.3,107.6 660.2,121.7 669.2,191.9 678.2,195.2 687.2,249.3 696.2,182.2 705.2,229.5 714.2,119.8 723.2,72.1 732.2,202.0 741.1,186.9 750.1,219.0 759.1,217.5 768.1,249.2 777.1,149.7 786.1,130.5 795.1,251.6 804.1,239.5 813.1,238.0 822.0,236.6 831.0,234.7 840.0,154.1 849.0,158.1 858.0,257.9" class="trend-line"></polyline>
+        <circle cx="408.6" cy="41.8" r="5" class="point-primary"></circle><text x="408.6" y="29.8" class="point-label">07-19<tspan class="point-value"> 64,174</tspan></text><circle cx="525.4" cy="30.0" r="5" class="point-primary"></circle><text x="525.4" y="18.0" class="point-label">08-01<tspan class="point-value"> 65,622</tspan></text><circle cx="768.1" cy="249.2" r="5" class="point-risk"></circle><text x="768.1" y="237.2" class="point-label">08-28<tspan class="point-value"> 38,663</tspan></text>
+        <line x1="58" y1="292" x2="858" y2="292" class="axis"></line>
+        <text x="58" y="324" class="axis-label">06-10</text>
+        <text x="818" y="324" class="axis-label">09-07</text>
+        <text x="698" y="336" class="chart-note">单位：金额；排除区：无</text>
+      </svg><figcaption>解读：日购买金额总体上行，7 月 19 日与 8 月 1 日为高值日；8 月 28 日低点与信息流零购买重合。趋势图只定位变化，不证明原因。</figcaption></figure>
+      </section>
+      <section id="conclusion" aria-labelledby="conclusion-title">
+        <h2 id="conclusion-title">结论与建议</h2>
+        <p><strong>总体判断：</strong>收入规模仍在增长，但增长质量在 3.2.0 窗口变差。当前最需要验证的是版本稳定性、信息流单日零购买，以及自然量高价值来源。由于缺少成本和实验记录，本报告不直接下达预算或回滚命令。</p>
+        <div class="decision-tree">
+          <article class="decision"><h4>若支付日志确认事故</h4><p>数据/支付团队修复链路并回补口径；验收为零购买原因可解释，且后续购买与埋点对账一致。</p></article>
+          <article class="decision"><h4>若版本实验复现劣化</h4><p>版本团队优先修复支付与稳定性；验收为加购→购买、D1、崩溃率、ANR 率恢复至 3.1.2 对照区间。</p></article>
+          <article class="decision"><h4>若补齐渠道花费</h4><p>增长团队计算 ROI 与回本周期；验收为渠道预算决策可按 ROI、留存和 ARPPU 联合排序。</p></article>
+        </div>
+        <h3>下一步补数清单</h3>
+        <table><thead><tr><th scope="col">缺口</th><th scope="col">补齐后验证</th><th scope="col">影响决策</th></tr></thead><tbody>
+          <tr><th scope="row">支付与埋点日志</th><td>8 月 28 日零购买是业务中断还是数据事故</td><td>是否修复链路或回滚数据口径</td></tr>
+          <tr><th scope="row">版本分配记录</th><td>3.2.0 差异是否在可控对照下复现</td><td>修复、继续灰度或回滚</td></tr>
+          <tr><th scope="row">渠道花费</th><td>自然量、应用商店、信息流、KOL 的真实 ROI</td><td>渠道预算再分配</td></tr>
+          <tr><th scope="row">用户级 ID 与漏斗时间戳</th><td>用户路径、跨日转化与留存机制</td><td>留存和转化优化优先级</td></tr>
+        </tbody></table>
+      </section>
+      <section id="appendix" aria-labelledby="appendix-title">
+        <h2 id="appendix-title">附录</h2>
+        <h3>方法与口径</h3>
+        <ul>
+          <li>聚合假设：同一天不同平台/渠道/版本行按互斥用户会话口径直接求和；未做跨日用户去重。</li>
+          <li>漏斗口径：signup_users 作为后续漏斗起点；不计算 new_users → signup_users 转化率。</li>
+          <li>稳定性口径：崩溃率 = crash_sessions / sessions；ANR 率 = anr_sessions / sessions；缺失会话行排除。</li>
+          <li>版本对照：2026-08-20 至 2026-09-07，两版本同日期、同平台、同渠道覆盖。</li>
+          <li>统计方法：分层汇总、线性趋势、两比例差异检验；探索性结果不替代因果识别。</li>
+        </ul>
+        <h3>限制</h3>
+        <ul>
+          <li>无随机分配、灰度比例和用户层版本切换记录，版本差异不能写成因果。</li>
+          <li>无渠道花费，不能计算 ROI 或回本周期。</li>
+          <li>无活动、投放、支付与埋点事件表，高值日和零购买日无法归因。</li>
+          <li>iOS ANR 为 0 可能是真实为 0，也可能是未采集，需要埋点确认。</li>
+        </ul>
+        <details open><summary>证据对账</summary><table><thead><tr><th scope="col">证据 ID</th><th scope="col">事实</th><th scope="col">来源</th></tr></thead><tbody><tr><th scope="row">E001</th><td>数据包含 872 行、16 列，日期范围 2026-06-10 至 2026-09-07，共 90 天。</td><td><code>profile.json</code></td></tr><tr><th scope="row">E006</th><td>在 2026-08-20 至 2026-09-07 同窗口，3.1.2 加购→购买转化率 44.66%，3.2.0 为 34.70%；崩溃率分别为 0.45% 和 3.22%。</td><td><code>metrics.json#/version_comparison</code></td></tr><tr><th scope="row">E007</th><td>2026-08-28 信息流在 Android/iOS 与 3.1.2/3.2.0 组合下购买人数和购买金额均为 0，而 2026-08-27 与 2026-08-29 均有购买。</td><td><code>raw CSV 2026-08-28 channel=信息流</code></td></tr><tr><th scope="row">E002</th><td>共 872 行；sessions/session_minutes 缺失 2 行；关键键重复 0 个；signup_users 大于 new_users 的行有 443 行。</td><td><code>quality.json</code></td></tr><tr><th scope="row">E003</th><td>全周期加购→购买转化率 43.39%，购买金额 4082822.89，ARPPU 158.47，D1留存 31.31%。</td><td><code>metrics.json#/overall</code></td></tr><tr><th scope="row">E004</th><td>首7天购买金额 274649.04，末7天 298399.59；日购买金额线性斜率 68.43。</td><td><code>metrics.json#/trends</code></td></tr><tr><th scope="row">E005</th><td>渠道、平台、版本及渠道×版本的加总、转化率、ARPPU、留存和稳定性指标见 metrics.json 对应数组。</td><td><code>metrics.json#/by_channel</code></td></tr></tbody></table></details>
+        <details><summary>审查与校验</summary><p>Locator、Mechanism、Falsifier、Reviewer 四角色以串行隔离回退完成；发布校验 <strong class="status-pass">8/8 通过</strong>。图表与关键数字均来自 <code>metrics.json</code>、<code>quality.json</code> 与原始 CSV，可复算。</p></details>
+      </section>
+    </main>
+    <footer>离线自包含报告 · 无外部请求 · 未使用截图或图片 · 生成时间：2026-09-08</footer>
+  </div>
+</body>
+</html>
