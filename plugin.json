@@ -1,7 +1,7 @@
 {
   "name": "data-analysis",
-  "version": "0.5.0",
-  "description": "面向 Excel/CSV 的模型主导数据分析 skill：模糊问题强制 Grill-Me 反问，正式结论强制 Locator/Mechanism/Falsifier/Reviewer 独立角色工件；报告内容骨架固定为原版六段式，模型自主选择视角与视觉呈现，真实性由 da_verify 门禁约束。",
+  "version": "0.6.0",
+  "description": "面向 Excel/CSV 的模型主导数据分析 skill：模糊问题强制 Grill-Me 反问，正式结论强制 Locator/Mechanism/Falsifier/Reviewer 独立角色工件；新增归因、同期群、生存/流失、路径、RFM、价格弹性、CUSUM 断点检测、SRM/CUPED、功效/MDE、多重比较共 11 个算子，以及增长 / 互金 / 游戏 / 双边 / 本地生活 五大行业模板；da_verify 强化量纲严格的数字溯源、识别策略门禁、探索性结论警告。报告内容骨架固定为原版六段式，模型自主选择视角与视觉呈现，真实性由 da_verify 门禁约束。",
   "author": {
     "name": "Codex Data Analysis"
   },
@@ -15,15 +15,33 @@
     "ab-test",
     "causal-inference",
     "segmentation",
+    "attribution",
+    "cohort-retention",
+    "survival",
+    "path-analysis",
+    "rfm",
+    "price-elasticity",
+    "changepoint",
+    "srm",
+    "cuped",
+    "power-mde",
+    "multiple-testing",
     "business-analysis",
     "retail-ecommerce",
     "internet-saas",
     "logistics-express",
     "social-media-content",
     "education-training",
+    "growth-advertising",
+    "fintech",
+    "gaming",
+    "marketplace",
+    "local-services",
     "数据分析",
     "异动分析",
-    "漏斗分析"
+    "漏斗分析",
+    "归因分析",
+    "留存分析"
   ],
   "skills": [
     "."

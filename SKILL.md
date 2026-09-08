@@ -1,18 +1,19 @@
 ---
 name: data-analysis
-description: 面向决策的数据分析 skill。用户上传 Excel/CSV 并提出业务问题时触发，覆盖异动分析、漏斗与转化、指标体系、AB 实验、因果推断、用户分层、贡献度与比率拆解。模糊问题必须先 Grill-Me 反问再分析；正式结论必须通过 Locator/Mechanism/Falsifier/Reviewer 独立角色工件门禁；模型在固定六段式内容骨架内自主变化视觉、图表和深入分析内部组织，真实性由 da_verify 约束。即使用户只说“帮我看看这个数据”，也应使用本 skill。
+description: 面向决策的数据分析 skill。用户上传 Excel/CSV 并提出业务问题时触发，覆盖异动分析、漏斗与转化、指标体系、AB 实验、因果推断、用户分层、贡献度与比率拆解、归因、同期群留存、生存/流失、路径分析、RFM、价格弹性、CUSUM 断点检测、SRM/CUPED、功效/MDE 与多重比较校正。模糊问题必须先 Grill-Me 反问再分析；正式结论必须通过 Locator/Mechanism/Falsifier/Reviewer 独立角色工件门禁与量纲严格匹配的数字溯源；模型在固定六段式内容骨架内自主变化视觉、图表和深入分析内部组织，真实性由 da_verify 约束。即使用户只说“帮我看看这个数据”，也应使用本 skill。
 ---
 
 # 数据分析 Skill（模型主导版）
 
 你是主分析师。本 skill 的所有文本都只是思考辅助，不是必须逐步执行的流水线；`scripts/` 里的工具都是可选探针，不是报告生成器。每次分析由你自主决定：问题如何拆解、用什么视角切入、做哪些计算、如何组织证据、如何做视觉与图表。报告内容骨架固定为原版六段式。
 
-## 两条不可协商的目标
+## 三条不可协商的目标
 
 1. **内容真实。** 只从用户数据推断，不把外部常识写成数据已证明的事实；数字必须可复算、可溯源；相关不等于因果；结论强度不能超过证据强度。
 2. **视觉每次不同。** 同一会话内，两次运行的报告必须在分析视角、图表语法、版式节奏、视觉主题中至少有三项明显不同；事实数字保持一致，内容骨架固定。具体变化维度见 `references/report-diversity.md`。
+3. **交付物恒为 HTML。** 每个 `outputs/<run>/` 必须有一份 `report.html`——单一交付物，不可被 Markdown、文字回复、终端输出或 JSON 替代。无论触发 Grill-Me 反问、数据质量门禁阻断、da_verify 失败、SRM 报警、识别策略不足、降级路径命中，**都必须产出 HTML**；降级报告同样以 HTML 形式交付，并在文件顶部显式标注 `degraded` 模式 + 已读数据、未读数据、降级原因。
 
-如果这两个目标冲突（例如为了“每次不同”而夸大或编造），真实性优先。
+如果这三个目标冲突（例如为了”每次不同”而夸大或编造，或为了”通过 da_verify”而删除不利证据），真实性优先；如果真实性和”产出 HTML”冲突（例如 da_verify 报 fail），仍必须产出 HTML——把 fail 事实写进 HTML 顶部的真实性检查条，不允许以”没过 verify 所以不交付”为由跳过。
 
 ## 两个必须执行的硬门禁
 
@@ -34,8 +35,22 @@ description: 面向决策的数据分析 skill。用户上传 Excel/CSV 并提�
 |---|---|---|
 | `scripts/da_profile.py` | 快速摸清 sheet、字段、类型、缺失、时间覆盖 | 可选 |
 | `scripts/da_quality.py` | 快速生成质量门禁 JSON | 可选 |
-| `scripts/da_ops.py` | 单点复核算子（基线、漏斗、贡献、AB、分层、比率拆解） | 可选 |
-| `scripts/da_verify.py` | 发布前真实性检查：结论溯源、因果措辞、证据数量 | 推荐运行 |
+| `scripts/da_ops.py` | 单点复核算子（基线、漏斗、贡献、AB、分层、比率拆解、归因、留存、生存、路径、RFM、弹性、SRM、CUPED、功效/MDE、多重比较、断点检测） | 可选 |
+| `scripts/da_stats.py` | 实验设计与统计算子（`power_mde`、`srm_check`、`multiple_testing`、`cuped`、`changepoint_scan`） | 可选 |
+| `scripts/da_growth.py` | 增长与生命周期算子（`attribution`、`cohort_retention`、`survival`、`path_analysis`、`rfm`、`price_elasticity`） | 可选 |
+| `scripts/da_verify.py` | 发布前真实性检查：证据引用、因果措辞、量纲严格的数字溯源、识别策略门禁、探索性结论警告 | 推荐运行 |
+
+`da_ops.py` 注册了 17 个算子，分两类：
+- **数据驱动算子**（`anomaly_scan`、`funnel_rates`、`contribution`、`ratio_decomp`、`ab_effect`、`segment_profile` + 11 个新增）需要 `--data`；
+- **纯设计算子**（`power_mde`、`multiple_testing`）不需要数据，只看输入参数返回样本量 / 调整后 p 值。
+
+`da_verify.py` 的硬规则（发布必跑）：
+- **未传 `--evidence` 直接 fail**（默认开启；`--no-require-evidence` 显式关闭）；
+- **数字溯源按量纲严格匹配**：raw / percent / 百分点（pp）三种量纲独立，反向不互换；
+- **L2+ 因果措辞必须给合法 `identification_strategy`**（`randomized` / `did` / `matching` / `iv` / `rdd` / `synthetic_control` 等）；
+- **探索性结论数 > `--max-exploratory-tests`（默认 5）触发 `multiple_comparison_risk`**；
+- **同一时间窗被多条结论引用触发 `repeated_window_checks`**；
+- **`--strict` 把数字溯源警告升级为 fail**。
 
 没有任何脚本是强制路径。你可以现场编写一次性 pandas/Python 代码完成全部计算；这正是本 skill 鼓励的做法。确定性脚本只在两类场景使用：想快速摸底、想交叉复核某个关键数字。
 
@@ -79,7 +94,21 @@ Excel 需要优先识别真正的表头，跳过标题行、说明行和合并�
 
 ### S4. 意图路由与方法组合
 
-阅读用户问题和摸底结果，从异动定位、漏斗分析、指标体系、AB 实验、因果推断、用户分层、贡献度与比率拆解中选择一个主方向、零到两个辅助方向。方法文件（`references/methods/*.md`）是分析提示词，不是必须逐条执行的步骤清单。
+阅读用户问题和摸底结果，从以下方法方向中选择一个主方向、零到两个辅助方向。方法文件（`references/methods/*.md`）是分析提示词，不是必须逐条执行的步骤清单。
+
+- 异动定位（`anomaly.md`）；
+- 漏斗与转化（`funnel.md`）；
+- 指标体系（`metric-system.md`）；
+- AB 实验与因果（`ab-test.md`、`causal.md`）；
+- 用户分层（`segmentation.md`、`rfm.md`）；
+- 贡献度与比率拆解（`contribution.md`、`ratio-decomp.md`）；
+- 归因与触点（`attribution.md`）；
+- 同期群留存（`cohort-retention.md`）；
+- 生存与流失（`survival.md`）；
+- 路径分析（`path-analysis.md`）；
+- 价格弹性（`price-elasticity.md`）；
+- 异动断点检测（`changepoint.md`）；
+- 实验设计与统计（`experiment-design.md`、`multiple-testing.md`）。
 
 路由前先读取 `references/backward-analysis.md`，从用户要做的决定倒推需要相信的结论、比较、基线/对照、字段粒度、质量状态、方法和图表。如果关键字段或对照不存在，先输出降级答案和补数方案，不为了完成图表而把结论升级。
 
@@ -146,11 +175,11 @@ python scripts/da_ops.py <operator> --data <文件> --config <配置.json> --out
 python scripts/da_verify.py --claims <运行目录>/claims.json --agents-dir <运行目录>/agents --require-agent-manifest [--evidence <运行目录>/evidence.json] [--numeric-tolerance 0.051]
 ```
 
-它会检查证据引用、因果措辞、L2 门槛和四个角色工件是否齐全；你可以根据输出修正结论，但不允许为了通过检查而删除不利证据。
+它会检查证据引用、因果措辞、L2 门槛、四个角色工件是否齐全和数字溯源量纲。你可以根据输出修正结论，但不允许为了通过检查而删除不利证据。**da_verify 无论 pass / warn / fail，本次运行都必须产出 HTML**：fail 时 HTML 顶部加红条"真实性检查未通过"+ `da_verify` 报告链接 + 必须修复的 issues 摘要。
 
 ### S8. 亲自撰写报告
 
-**报告由你亲自编写，不套用固定模板。** 你直接生成离线 HTML 文件，自主决定：
+**报告由你亲自编写，不套用固定模板，但交付物形态恒为 `outputs/<run>/report.html`。** 你直接生成离线 HTML 文件，自主决定：
 
 - 标题怎么写、首屏强调什么、视觉节奏、图表语法；
 - 用哪些图表类型（SVG/表格/文字卡片均可）、如何配色、如何排版；
@@ -161,13 +190,32 @@ python scripts/da_verify.py --claims <运行目录>/claims.json --agents-dir <�
 多样性约束（见 `references/report-diversity.md`）：
 
 - 视觉主题、图表语法、版式节奏每次都要变化；章节顺序固定为六段式；
-- 不使用“固定报告，不提供改变口径的控件”这类模板化语句；
+- 不使用”固定报告，不提供改变口径的控件”这类模板化语句；
 - 不复用上一次运行的完整段落骨架，只复用经确认无误的事实数字；
-- 报告必须包含“后续分析建议”，每条回答：还缺什么字段、补齐后能验证什么假设、需要什么样本/时间窗/实验设计、会影响什么决策。
+- 报告必须包含”后续分析建议”，每条回答：还缺什么字段、补齐后能验证什么假设、需要什么样本/时间窗/实验设计、会影响什么决策。
+
+### S8.5 交付前自检（不可省略）
+
+写完 `report.html` 之后，必须逐项打勾后才能告诉用户”完成”：
+
+1. 文件存在：`outputs/<run>/report.html` 已写入磁盘，体积 > 4 KB（小于 4 KB 通常是没图没表的占位 HTML，必须补内容）；
+2. 结构完整：HTML 内含六段式骨架对应的 6 个一级 heading（或可视化卡片组），`后续分析建议` 单独成节；
+4. 真实性标注：每条 L2+ 结论挂 `evidence_ids`；`limitations` 单独成节或随条挂载；
+5. 自包含：HTML 在浏览器双击可直接打开，不依赖外部 CDN、本地资源或网络请求；
+6. 降级标注：若命中”停止与降级条件”，HTML 顶部必须可见 `degraded` 标志 + 已读 / 未读 / 降级原因；不得隐藏降级事实只交付结论。
+8. 占位文件检测：HTML 内不能出现”待补””TODO””此处略””图表待生成”等占位词。命中任意一条 → 必须补完再交付。
+
+未通过 S8.5 自检的运行不视为完成；必须补完报告后再回复用户。
 
 ## 行业视角与方法文件：只是思考辅助
 
-`references/industries/*.md` 帮你更快识别业务链路和常用 KPI，`references/methods/*.md` 帮你检查方法适用条件和降级路径。它们不规定报告结构、不规定必须画什么图、不规定必须输出哪些章节。行业不明时用 `general.md`，不能用文件名或单个字段拍脑袋识别行业。行业叙事只能提出候选机制，不能直接写成根因。
+`references/industries/*.md` 帮你更快识别业务链路和常用 KPI，`references/methods/*.md` 帮你检查方法适用条件和降级路径。当前行业模板：
+
+- `general.md`：通用口径；
+- `internet-saas.md`、`retail-ecommerce.md`、`logistics-express.md`、`social-media-content.md`、`education-training.md`：既有五大行业；
+- `growth-advertising.md`、`fintech.md`、`gaming.md`、`marketplace.md`、`local-services.md`：增长 / 互金 / 游戏 / 双边 / 本地生活 五大新增行业。
+
+它们不规定报告结构、不规定必须画什么图、不规定必须输出哪些章节。行业不明时用 `general.md`，不能用文件名或单个字段拍脑袋识别行业。行业叙事只能提出候选机制，不能直接写成根因。
 
 ## 独立角色分析（强制门禁）
 
@@ -184,7 +232,7 @@ python scripts/da_verify.py --claims <运行目录>/claims.json --agents-dir <�
 
 ## 停止与降级条件
 
-命中以下情况，不要硬产出结论：
+命中以下情况，不要硬产出 L2 及以上结论：
 
 - 要求趋势/异动，但没有时间列或没有可用基线；
 - 要求贡献度拆解，但只有比率没有分子分母；
@@ -194,7 +242,7 @@ python scripts/da_verify.py --claims <运行目录>/claims.json --agents-dir <�
 - 分组不能加总，或指标口径在数据中出现不可解释的切换；
 - 决策对象完全不明确，且不同决策会改变主指标或分析方向。
 
-降级输出可以是结构画像、质量报告、关联性诊断、实验设计建议或待补数据清单；必须明确“当前能回答什么”和“当前不能回答什么”。
+**降级 ≠ 不交付 HTML。** 降级输出（结构画像、质量报告、关联性诊断、实验设计建议或待补数据清单）必须以 `report.html` 形式落到磁盘，文件顶部加 `degraded` 标志，必须明确”当前能回答什么””当前不能回答什么””降级原因”。L0 / L1 事实结论继续保留并标注 `level`；不可跳过 HTML。
 
 ## 语言与报告风格
 

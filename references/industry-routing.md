@@ -17,7 +17,7 @@
 ```json
 {
   "industry": {
-    "primary": "retail-ecommerce|internet-saas|logistics-express|social-media-content|education-training|general|other",
+    "primary": "retail-ecommerce|internet-saas|logistics-express|social-media-content|education-training|growth-advertising|fintech|gaming|marketplace|local-services|general|other",
     "confidence": "high|medium|low",
     "evidence": ["字段或用户描述"],
     "user_confirmation_needed": true,
@@ -47,3 +47,8 @@
 | `logistics-express.md` | 运单、揽收、分拨、干线、派送、签收、网点或线路 | 时效、节点漏斗、SLA、产能、异常件和成本服务权衡 |
 | `social-media-content.md`（Social Media / Content Creation） | 内容/作品、账号/作者、曝光、播放、观看、互动、关注或外链字段 | 内容分发、观看/互动、受众留存、归因和创作效率 |
 | `education-training.md`（Education / Training） | 学员/报名、课程/班级/课次、出勤、作业、考试、结课或缴退费字段 | 招生漏斗、出勤/完成 cohort、学习增益、续报和教学运营 |
+| `growth-advertising.md` | 广告计划/创意、消耗、曝光、点击、转化、归因窗口、ROAS/CAC | 渠道 × 模型 ROAS 区间、素材疲劳、受众与频次、增量识别 |
+| `fintech.md` | 用户 KYC、合同/借据、产品、计息/还款、风控决策、资金端 vs 资产端 | 资产五级分类、DPD 迁徙、IRR / 净息差、复借率、风控模型稳定性 |
+| `gaming.md` | 玩家/角色/账号/订单/道具、对局事件、版本/服务器/渠道 | 漏斗 + 次留 + LTV、付费率与 ARPPU 分布、经济系统 |
+| `marketplace.md` | 买家/卖家/商品/订单/评价、抽佣、履约、纠纷 | 撮合漏斗、双边留存、Take rate、GMV/真实 GMV、品类集中度 |
+| `local-services.md` | 用户/骑手/师傅/商家、订单、网格（geohash/AOI）、发起/履约时间 | 网格供需、履约时长拆分、骑手效率、商家分层、取消原因 |

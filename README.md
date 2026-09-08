@@ -17,11 +17,18 @@
 - **异动定位**：稳健基线、异常日期、趋势断点、维度定位和机制候选。
 - **漏斗分析**：阶段分母、转化率、流失量、瓶颈和可回收空间。
 - **指标体系**：北极星、结果、过程、诊断、护栏、口径和看板最小集合。
-- **AB 实验**：SRM、分流单位、效应、区间、显著性、异质性和护栏。
+- **AB 实验**：SRM、分流单位、效应、区间、显著性、异质性、护栏、功效/MDE 与 CUPED 方差缩减。
 - **因果推断**：识别策略、处理/对照、可比性、增量估计和关联性降级。
-- **用户分层**：动作前特征、分层规则、价值、规模、稳定性和动作映射。
+- **用户分层**：动作前特征、分层规则、价值、规模、稳定性和动作映射；RFM 分位切点 + 8 段标签。
 - **贡献度与比率拆解**：组内变化、结构变化、缺口对账、正负抵消和分子分母重算。
-- **报告交付**：单文件离线 HTML，固定六段式内容骨架，结论先行，支持 SVG 图表、证据表和后续数据需求。
+- **归因与触点**：多模型（last_touch / linear / time_decay / position_based / shapley / first_touch）渠道归因 + 对账 + 模型分歧度。
+- **同期群留存**：仅用成熟 cohort 计算平均曲线，左截断披露。
+- **生存与流失**：Kaplan-Meier 曲线 + log-rank 分组比较 + 删失披露。
+- **路径分析**：转移矩阵、入口/出口、自环、高频路径与终点到达率。
+- **价格弹性**：log-log 回归 + 反事实测算 + 识别策略门禁（无随机化最多 L1）。
+- **异动断点检测**：季节性调整 + CUSUM + 水平切点（断点位置是数据挑选出来的，实际显著性弱于该数值）。
+- **多重比较校正**：Bonferroni / Holm / BH-FDR；与 `da_verify.py` 的探索性结论警告联动。
+- **报告交付**：单文件离线 HTML，恒为唯一交付物；触发 Grill-Me / 质量门禁 / SRM / da_verify 失败 / 降级时仍必须产出 `report.html`（降级报告同样以 HTML 形式落地）。
 
 ## 设计原则
 
@@ -31,7 +38,7 @@
 4. 相关不等于因果；无法验证的解释写成高置信候选或待验证假设。
 5. 复杂问题优先由 Codex 原生 subagent 机制启动 Locator、Mechanism、Falsifier、Reviewer 四个独立 agent；前三个并行派发，Reviewer 最后执行。自定义 provider 或无原生工具时自动降级为串行隔离回退，绝不伪造 subagent。
 6. 报告必须说明补充什么数据后可以回答什么当前回答不了的问题。
-7. 报告多样性：内容骨架固定为原版六段式。
+7. 报告多样性：内容骨架固定为原版六段式；同一会话内两次运行只变化视角、图表语法、版式节奏和深入分析的内部组织，事实数字保持一致。
 8. Grill-Me 硬门禁：用户问题模糊时必须先反问再分析，反问轮不生成报告，停下等待回答；用户说“直接分析”才允许带默认假设继续。
 9. 独立角色硬门禁：涉及“为什么/原因/异动”或 L2 及以上解释时，必须完成 Locator/Mechanism/Falsifier/Reviewer 四个角色的独立工件，缺一不可发布。
 10. 执行留痕：每次运行写 `agents/execution.json`，标明 `native_subagents` 或 `serial_fallback`；原生模式必须记录四个 agent id，回退模式必须记录原因。
@@ -39,19 +46,22 @@
 
 ## 工作流
 
-```text
-文件与问题
-  → 理解决策与数据边界
-  → 摸底（可选 profile 脚本，也可自己写代码）
-  → Grill-Me 反问硬门禁（模糊问题先反问，停下等回答）
-  → 语义合同与数据质量门禁
-  → 选择本次分析视角（多样性决策点）
-  → 意图路由与方法组合
-  → 模型自主分析（现场代码 + 可选算子复核）
-  → 独立角色分析（Locator/Mechanism/Falsifier/Reviewer 工件）
-  → 结论分级与真实性检查（da_verify）
-  → 撰写离线 HTML 报告
 ```
+  文件与问题
+    → 理解决策与数据边界
+    → 摸底（可选 profile 脚本，也可自己写代码）
+    → Grill-Me 反问硬门禁（模糊问题先反问，停下等回答）
+    → 语义合同与数据质量门禁
+    → 选择本次分析视角（多样性决策点）
+    → 意图路由与方法组合
+    → 模型自主分析（现场代码 + 可选算子复核）
+    → 独立角色分析（Locator/Mechanism/Falsifier/Reviewer 工件）
+    → 结论分级与真实性检查（da_verify）
+    → 模型亲自撰写离线 HTML 报告（outputs/<run>/report.html）
+    → 交付前自检：文件存在 + 体积 + 六段式 + 后续建议 + limitations + 降级标注 + 无占位词
+```
+
+交付物恒为 `outputs/<run>/report.html`。即使触发 Grill-Me 反问、质量门禁阻断、SRM 报警、识别策略不足、da_verify 失败或降级路径命中，也必须产出 HTML——降级报告以 HTML 形式交付并在文件顶部标注 `degraded` 模式 + 已读 / 未读 / 降级原因。
 
 运行工件保存为：
 
@@ -70,10 +80,11 @@ outputs/<run>/
 ├── evidence.json
 ├── claims.json
 ├── variation.json
-└── report.html
+├── da_verify.json（发布前真实性检查结果）
+└── report.html（必交交付物；降级 / 失败模式下也必须存在）
 ```
 
-文件名只是建议，不是固定流水线；模型按本次分析的需要增删工件。
+文件名只是建议，不是固定流水线；模型按本次分析的需要增删工件。但 `report.html` 与 `da_verify.json` 不可省略。
 
 ## 在 Codex 中安装
 
@@ -138,19 +149,13 @@ pip install -r requirements.txt
 - `references/clarify.md`：模糊问题的必要追问和默认假设协议。
 - `references/harness.md`：多 agent 的角色提示词、输入隔离、JSON 输出和合并规则。
 - `references/evidence-contract.md`：L0-L4 结论层级和发布门禁。
-- `references/methods/`：异动、漏斗、指标体系、AB、因果、分层、贡献度、比率拆解方法包。
-- `references/industries/`：行业口径模板。当前包含通用、零售电商、互联网 SaaS、物流快递、自媒体/内容创作和教育培训；每个行业模板都按“适用信号 → 业务链路与统计对象 → KPI（定义/必要字段/禁止推断）→ 数据门禁 → 分析主题 → 叙事语言 → 图表 → 降级路径”组织。
-- `scripts/`：表头识别、结构画像、质量门禁、通用分析算子和真实性校验器。
+- `references/methods/`：异动、漏斗、指标体系、AB、因果、分层、贡献度、比率拆解、归因、同期群留存、生存/流失、路径分析、价格弹性、断点检测、实验设计与多重比较校正方法包。
+- `references/industries/`：行业口径模板。当前包含通用、零售电商、互联网 SaaS、物流快递、自媒体/内容创作、教育培训、增长与广告投放、互金、互联网游戏、双边平台与市场、本地生活与 O2O 共 11 套；每套都按”适用信号 → 业务链路与统计对象 → KPI（定义/必要字段/禁止推断）→ 数据门禁 → 分析主题 → 行业叙事 → **常见数据陷阱** → 图表 → 降级路径”组织。
+- `scripts/`：表头识别、结构画像、质量门禁、通用分析算子（17 个：`anomaly_scan`、`funnel_rates`、`contribution`、`ratio_decomp`、`ab_effect`、`segment_profile` + `attribution` / `cohort_retention` / `survival` / `path_analysis` / `rfm` / `price_elasticity` / `power_mde` / `srm_check` / `multiple_testing` / `cuped` / `changepoint_scan`）和真实性校验器（`da_verify.py` 已升级：未传 evidence 直接 fail、量纲严格匹配、L2+ 因果措辞必须挂合法 `identification_strategy`、探索性结论警告）。
 - `examples/`：不参与运行时的示例报告，用于展示交付形态。
 
 ## 验证与降级
 
-项目不携带示例数据或运行缓存；`examples/` 仅保留不参与运行时的展示报告。修改脚本后至少执行：
-
-```bash
-python -m compileall scripts
-```
-
-正式分析仍须使用真实输入数据，通过结构画像和质量门禁后再解释业务变化。
+项目不携带示例数据或运行缓存；`examples/` 仅保留不参与运行时的展示报告。
 
 没有时间列、没有基线、没有分子分母、实验 SRM 失败、因果没有可比对照或核心字段被数据质量事故污染时，skill 会停止对应分析或降级为结构画像、质量报告、关联性诊断和实验设计建议。
