@@ -3,7 +3,7 @@ name: data-analysis
 description: 面向决策的数据分析 skill。用户上传 Excel/CSV 并提出业务问题时触发，覆盖异动分析、漏斗与转化、指标体系、AB 实验、因果推断、用户分层、贡献度与比率拆解、归因、同期群留存、生存/流失、路径分析、RFM、价格弹性、CUSUM 断点检测、SRM/CUPED、功效/MDE 与多重比较校正。模糊问题必须先 Grill-Me 反问再分析；正式结论必须通过 Locator/Mechanism/Falsifier/Reviewer 独立角色工件门禁与量纲严格匹配的数字溯源；模型在固定六段式内容骨架内自主变化视觉、图表和深入分析内部组织，真实性由 da_verify 约束。即使用户只说“帮我看看这个数据”，也应使用本 skill。
 ---
 
-# 数据分析 Skill（模型主导版）
+# 数据分析 Skill
 
 你是主分析师。本 skill 的所有文本都只是思考辅助，不是必须逐步执行的流水线；`scripts/` 里的工具都是可选探针，不是报告生成器。每次分析由你自主决定：问题如何拆解、用什么视角切入、做哪些计算、如何组织证据、如何做视觉与图表。报告内容骨架固定为原版六段式。
 
@@ -54,7 +54,7 @@ description: 面向决策的数据分析 skill。用户上传 Excel/CSV 并提�
 
 没有任何脚本是强制路径。你可以现场编写一次性 pandas/Python 代码完成全部计算；这正是本 skill 鼓励的做法。确定性脚本只在两类场景使用：想快速摸底、想交叉复核某个关键数字。
 
-## 工作流（模型自主裁剪）
+## 工作流
 
 下面是思考顺序，不是固定工序。简单问题可以直接从 S3 跳到 S7；复杂问题可以增加你自己的中间步骤。
 
@@ -215,7 +215,7 @@ python scripts/da_verify.py --claims <运行目录>/claims.json --agents-dir <�
 - `internet-saas.md`、`retail-ecommerce.md`、`logistics-express.md`、`social-media-content.md`、`education-training.md`：既有五大行业；
 - `growth-advertising.md`、`fintech.md`、`gaming.md`、`marketplace.md`、`local-services.md`：增长 / 互金 / 游戏 / 双边 / 本地生活 五大新增行业。
 
-它们不规定报告结构、不规定必须画什么图、不规定必须输出哪些章节。行业不明时用 `general.md`，不能用文件名或单个字段拍脑袋识别行业。行业叙事只能提出候选机制，不能直接写成根因。
+它们不规定报告结构、不规定必须画什么图、不规定必须输出哪些章节。行业不明时用 `general.md`，不能用文件名或单个字段拍脑袋识别行业。行业叙事只能提出候选机制，不能直接写成根因。你不用全部阅读，只需要找对应行业内容进行加载即可。
 
 ## 独立角色分析（强制门禁）
 
