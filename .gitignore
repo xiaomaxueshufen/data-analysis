@@ -3,3 +3,6 @@ __pycache__/
 .pytest_cache/
 outputs/
 *.tmp
+.coverage
+.coverage.*
+coverage.xml

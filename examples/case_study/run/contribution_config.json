@@ -1,0 +1,10 @@
+{
+  "group_field": "区域",
+  "value_field": "净收入",
+  "current_filter": {
+    "期间": "当前"
+  },
+  "baseline_filter": {
+    "期间": "基线"
+  }
+}

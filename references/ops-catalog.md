@@ -17,12 +17,34 @@ python scripts/da_verify.py --claims <claims.json> --evidence <证据.json> --re
 | `da_profile.py` | 识别 sheet、表头、字段、类型、缺失和时间覆盖 | 文件路径 |
 | `da_quality.py` | 检查合同字段缺失、日期重复、空值、极端值和异常延迟 | profile、原始文件、语义合同 |
 | `da_reconcile.py` | 用表内「合计 / 小计」行当校验和，对明细做加总交叉验证，产出带 `id` 的对账条目 | 文件路径、容差 |
-| `anomaly_scan` | 计算同星期/滚动基线、偏离和 robust z | 日期、指标、`baseline_window_days` |
+| `anomaly_scan` | 计算同星期/滚动基线、偏离和 robust z；带 warmup 与基线门禁，输出 `gates` / `coverage` / `excluded_rows` / `limitations` | 日期、指标、`baseline_window_days`、`min_baseline_n`、`warmup_days` |
 | `funnel_rates` | 由阶段计数重算阶段率、损失量 | 阶段字段顺序 |
 | `ratio_decomp` | 将比率变化拆为组内与结构变化 | 分子、分母、维度、基线 |
 | `contribution` | 将总量缺口按组对账 | 组、当前值、基线值 |
 | `ab_effect` | 效应、标准误、置信区间和基本显著性 | 分流、指标、`confidence_level` |
 | `segment_profile` | 分层规模、价值和覆盖 | 分层字段、指标 |
+
+所有需要数据的算子都会在输出里带 `limitations` 数组，写明这次计算**不能**支持什么结论（基线污染、正负抵消、池化标准误的独立性前提、多值字段重复计数、比率分母漂移等）。写结论前先读它，不要越过它去写因果或排名。
+
+## 异动算子的门禁与覆盖（`anomaly_scan`）
+
+`anomaly_scan` 的基线尺度下限是 `|base| × 1%`：序列开头只有 1–2 天基线时，robust z 会被人为放大到 10 以上并霸占按 `|z|` 排的榜首。两条门禁把这类「没有基线可言的日期」直接排除，而不是留给模型自己发现：
+
+| 参数 | 默认 | 语义 |
+|---|---|---|
+| `warmup_days` | 14 | 按**序列位置**排除开头 N 天：前 N 天不做异动判定 |
+| `min_baseline_n` | 14 | 按**可用历史**排除：基线窗口内历史天数不足 N 天的日期不判定。判的是窗口里有多少天历史，不是同星期子集的大小——56 天窗口里同星期最多 8 天，拿子集大小当门禁会让 14 这个默认值永远无法满足 |
+| `min_points_for_weekday` | 8 | 同星期基线要求至少 8 个同星期点（整 8 周）才启用，否则回退到滚动窗口中位数 |
+| `baseline_window_days` | 56 | 滚动基线回看窗口 |
+| `min_same_weekday` | 2 | 启用同星期基线的下限，与 `min_points_for_weekday` 取较大者 |
+
+另有一条硬地板：进入基线计算的点少于 3 个时中位数与 MAD 不可用，同样排除。
+
+`warmup_days` 与 `min_baseline_n` 是两个口径——前者按位置、后者按可用历史——所以同一天可能同时命中两者，`excluded_rows` 里按 `warmup_period` 先记。
+
+输出逐条说明为什么排除：`gates` 记录本次生效的门禁值，`coverage` 给出 `total_days` / `judged_days` / `excluded_days` 与三类排除计数，`excluded_rows` 每行带 `exclusion_reason`（`warmup_period` / `insufficient_baseline` / `insufficient_baseline_points`）和人类可读的 `exclusion_detail`。负的 `min_baseline_n` 或 `warmup_days` 直接 `ValueError`，不会被静默当成 0；可判定日期少于 5 天时 `limitations` 追加「排名极不稳定，不要按名次解读」。
+
+代价同样写进 `limitations`：序列开头几天的真实事故不会被报出来，`min_baseline_n` 收紧也会削掉早期真实尖峰。
 
 ## 增长与生命周期算子（新增）
 

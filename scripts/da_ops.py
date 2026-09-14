@@ -40,22 +40,30 @@ def baseline_for(
     window_days: int = 56,
     min_same_weekday: int = 2,
     fallback_rows: int = 28,
+    min_points_for_weekday: int = 8,
 ) -> dict:
     dates = values[date_field]
     metric = to_numeric(values[metric_field_name])
     history = values[(dates < target) & (dates >= target - pd.Timedelta(days=window_days))]
     same_weekday = history[dates.loc[history.index].dt.dayofweek == target.dayofweek]
-    chosen = same_weekday if len(same_weekday) >= min_same_weekday else history.tail(fallback_rows)
+    # 同星期基线只有在「整 8 周」时才用：2–3 个同星期点的中位数配上 1% 的相对尺度
+    # 下限，能在纯噪声里造出 |z| > 10 的假异动，把真正的异动挤出榜首。
+    weekday_points_needed = max(min_same_weekday, min_points_for_weekday)
+    use_weekday = len(same_weekday) >= weekday_points_needed
+    chosen = same_weekday if use_weekday else history.tail(fallback_rows)
     series = metric.loc[chosen.index] if len(chosen) else metric
     if series.empty:
-        return {"value": None, "n": 0, "method": "unavailable", "mad": None, "std": None}
+        return {"value": None, "n": 0, "method": "unavailable", "mad": None, "std": None, "history_n": int(len(history))}
     median = float(series.median())
     deviation_series = (series - median).abs()
     mad = float(deviation_series.median()) if not deviation_series.empty else None
     return {
         "value": median,
         "n": int(len(series)),
-        "method": "same_weekday" if len(same_weekday) >= min_same_weekday else "rolling_window",
+        # history_n 是基线窗口内可用的天数（同星期子集最多 8 天，因为窗口是 56 天）。
+        # 门禁按 history_n 判「有没有足够历史」，不按同星期子集大小判。
+        "history_n": int(len(history)),
+        "method": "same_weekday" if use_weekday else "rolling_window",
         "mad": mad,
         "std": float(series.std()) if len(series) > 1 else None,
     }
@@ -110,7 +118,14 @@ def op_funnel(frame: pd.DataFrame, config: dict) -> dict:
         count = float(pd.to_numeric(frame[field], errors="coerce").sum())
         values.append({"stage": name, "field": field, "count": count, "rate_from_previous": count / previous if previous else None, "loss_from_previous": previous - count if previous is not None else None})
         previous = count
-    return {"op": "funnel_rates", "stages": values, "rows": len(frame)}
+    limitations = [
+        "阶段计数按字段直接相加：这里假设每个字段都是同一实体、同一时间窗的去重计数；如果字段是次数或未去重，阶段率会被重复计数放大。",
+        "阶段率的分母是上一阶段：阶段顺序写错（例如浏览排在注册之前）会得到大于 1 的比率，必须先用数据口径确认顺序。",
+        "只做算术重算，不做显著性检验：样本量小时阶段率差异可能完全由随机性解释。",
+    ]
+    if any(item["rate_from_previous"] is not None and item["rate_from_previous"] > 1 for item in values):
+        limitations.append("存在大于 100% 的阶段转化率，通常说明阶段顺序与数据口径不一致，先修口径再读结论。")
+    return {"op": "funnel_rates", "stages": values, "rows": len(frame), "limitations": limitations}
 
 
 def op_contribution(frame: pd.DataFrame, config: dict) -> dict:
@@ -130,7 +145,15 @@ def op_contribution(frame: pd.DataFrame, config: dict) -> dict:
         after = float(current_group.get(value, 0))
         delta = after - before
         result.append({"group": str(value), "baseline": before, "current": after, "delta": delta, "share_of_gap": delta / gap if gap else None, "evidence_id": f"C-{len(result)+1:03d}"})
-    return {"op": "contribution", "group_field": group, "value_field": value_field, "total": {"baseline": total_baseline, "current": total_current, "gap": gap}, "groups": sorted(result, key=lambda item: abs(item["delta"]), reverse=True)}
+    limitations = [
+        "只对总量缺口做加总对账，不解释缺口原因：贡献度大不等于「责任大」，它只是缺口在分组间的分配。",
+        "share_of_gap 在正负抵消时不可读：缺口接近 0 时分母不稳，此时只看 delta 绝对值，不要比 share。",
+        "分组必须可加总：如果同一实体（订单、用户）被重复计入多个组，缺口会被重复计算。",
+        "baseline 与 current 的过滤条件必须口径一致，否则贡献度里会混入口径切换的效果。",
+    ]
+    if gap and abs(gap) > 0 and any(item["delta"] > 0 for item in result) and any(item["delta"] < 0 for item in result):
+        limitations.append("存在正负抵消的分组，缺口的一部分被相互抵消；不要用单个分组的 delta 解释整段缺口。")
+    return {"op": "contribution", "group_field": group, "value_field": value_field, "total": {"baseline": total_baseline, "current": total_current, "gap": gap}, "groups": sorted(result, key=lambda item: abs(item["delta"]), reverse=True), "limitations": limitations}
 
 
 def op_ratio_decomp(frame: pd.DataFrame, config: dict) -> dict:
@@ -164,7 +187,13 @@ def op_ratio_decomp(frame: pd.DataFrame, config: dict) -> dict:
     within_total = sum(row["within_group"] for row in rows)
     mix_total = sum(row["mix_shift"] for row in rows)
     delta = (current_rate - baseline_rate) if current_rate is not None and baseline_rate is not None else None
-    return {"op": "ratio_decomp", "ratio": {"numerator": numerator, "denominator": denominator, "baseline": baseline_rate, "current": current_rate, "delta": delta}, "components": {"within_group": within_total, "mix_shift": mix_total, "interaction_residual": delta - within_total - mix_total if delta is not None else None}, "groups": sorted(rows, key=lambda item: abs(item["contribution"]), reverse=True)}
+    limitations = [
+        "组内/结构分解是恒等式变形，不是因果分解：结构变化往往也是业务动作的结果，不能读成「结构变化导致的损失」。",
+        "分解只在给定的分组粒度内成立：换一个分组维度会得到完全不同的组内/结构切分。",
+        "分组多、单组样本小时，组内项会被小样本噪声主导；组内项接近 0 时不要写成「该组没有问题」。",
+        "interaction_residual 不为 0 说明两组权重与比率同时变化，剩余项不可归给任何单一机制。",
+    ]
+    return {"op": "ratio_decomp", "ratio": {"numerator": numerator, "denominator": denominator, "baseline": baseline_rate, "current": current_rate, "delta": delta}, "components": {"within_group": within_total, "mix_shift": mix_total, "interaction_residual": delta - within_total - mix_total if delta is not None else None}, "groups": sorted(rows, key=lambda item: abs(item["contribution"]), reverse=True), "limitations": limitations}
 
 
 def op_ab_effect(frame: pd.DataFrame, config: dict) -> dict:
@@ -191,7 +220,15 @@ def op_ab_effect(frame: pd.DataFrame, config: dict) -> dict:
     effect = treatment_mean - control_mean
     z = effect / se if se else None
     ci = [effect - z_critical * se, effect + z_critical * se] if se else [None, None]
-    return {"op": "ab_effect", "control": {"label": control, "n": len(control_values), "mean": control_mean}, "treatment": {"label": treatment, "n": len(treatment_values), "mean": treatment_mean}, "effect": effect, "ci": ci, "confidence_level": confidence_level, "z": z, "p_value": normal_pvalue(z) if z is not None else None, "metric_type": metric_type}
+    limitations = [
+        "没有做 SRM 检验、没有检查分流单位是否重复：先跑 srm_check，分流有问题时本结果不可解读。",
+        "这是无协变量调整的两样本比较；CUPED 或分层能提高精度，但都不能修复分流问题。",
+        "p 值与区间按正态近似：极低事件率、强偏态金额指标或极小样本需要更稳健的方法。",
+        "只比较了处理与对照，没有覆盖护栏指标与异质性；单看一个指标的显著性不足以支撑上线决策。",
+    ]
+    if metric_type == "binary":
+        limitations.append("binary 指标按合并比例池化标准误（pooled），要求两组样本独立；同一样本重复出现在两行会低估标准误。")
+    return {"op": "ab_effect", "control": {"label": control, "n": len(control_values), "mean": control_mean}, "treatment": {"label": treatment, "n": len(treatment_values), "mean": treatment_mean}, "effect": effect, "ci": ci, "confidence_level": confidence_level, "z": z, "p_value": normal_pvalue(z) if z is not None else None, "metric_type": metric_type, "limitations": limitations}
 
 
 def op_segment_profile(frame: pd.DataFrame, config: dict) -> dict:
@@ -207,7 +244,15 @@ def op_segment_profile(frame: pd.DataFrame, config: dict) -> dict:
             values = to_numeric(group[field])
             item[spec.get("name", field)] = float(values.sum() if agg == "sum" else values.mean() if agg == "mean" else values.count())
         output.append(item)
-    return {"op": "segment_profile", "segment_field": segment, "segments": sorted(output, key=lambda item: item["size"], reverse=True)}
+    limitations = [
+        "分层是描述性的：只报告规模与指标分布，不做任何显著性检验，分群差异可能只反映样本量差异。",
+        "按维度直接分组会让同一实体出现在多个组里，size 之和可能大于去重实体数。",
+        "如果分层字段本身是结果变量（例如按当前状态、当前等级分组），它不能用来解释同期变化。",
+    ]
+    covered = sum(item["size"] for item in output)
+    if covered == total and len(output) > 1:
+        limitations.append("各分层 size 之和等于行数，说明分组字段是单值字段；若为多值字段，规模会被重复计数。")
+    return {"op": "segment_profile", "segment_field": segment, "segments": sorted(output, key=lambda item: item["size"], reverse=True), "limitations": limitations}
 
 
 def op_anomaly_scan(frame: pd.DataFrame, config: dict) -> dict:
@@ -222,8 +267,19 @@ def op_anomaly_scan(frame: pd.DataFrame, config: dict) -> dict:
     work["__date"] = work[date_field]
     baseline_window_days = int(config.get("baseline_window_days", 56))
     minimum_relative_scale = float(config.get("minimum_relative_scale", 0.01))
+    # 基线的尺度下限是 |base| * 1%，所以基线样本只有 1–2 天时，序列开头几天的
+    # robust z 会被人为放大到 10 以上，霸占按 |z| 排序的榜首。两条门禁把这类
+    # 「没有基线可言的日期」从判定里剔除，而不是让模型自己发现。
+    # min_baseline_n 判的是「基线窗口内有多少天历史」，不是同星期子集的大小：
+    # 56 天窗口里同星期最多 8 天，用子集大小做门禁会让 14 这个默认值永远无法满足。
+    min_baseline_n = int(config.get("min_baseline_n", 14))
+    warmup_days = int(config.get("warmup_days", 14))
+    if min_baseline_n < 0 or warmup_days < 0:
+        raise ValueError("min_baseline_n 与 warmup_days 不能为负数")
+
     rows = []
-    for _, row in work.iterrows():
+    excluded = []
+    for position, (_, row) in enumerate(work.iterrows()):
         baseline = baseline_for(
             work,
             "__date",
@@ -232,10 +288,42 @@ def op_anomaly_scan(frame: pd.DataFrame, config: dict) -> dict:
             window_days=baseline_window_days,
             min_same_weekday=int(config.get("min_same_weekday", 2)),
             fallback_rows=int(config.get("baseline_fallback_rows", 28)),
+            min_points_for_weekday=int(config.get("min_points_for_weekday", 8)),
         )
         deviation_result = deviation(float(row[metric]), baseline, minimum_relative_scale)
-        rows.append({"date": row[date_field].strftime("%Y-%m-%d"), "value": float(row[metric]), "baseline": baseline, "deviation": deviation_result})
-    return {"op": "anomaly_scan", "metric": metric, "date_field": date_field, "rows": sorted(rows, key=lambda item: abs(item["deviation"].get("robust_z") or 0), reverse=True)}
+        entry = {"date": row[date_field].strftime("%Y-%m-%d"), "value": float(row[metric]), "baseline": baseline, "deviation": deviation_result}
+        if position < warmup_days:
+            excluded.append({**entry, "exclusion_reason": "warmup_period", "exclusion_detail": f"序列第 {position + 1} 天，位于 warmup_days={warmup_days} 的观察期外"})
+        elif baseline.get("history_n", baseline["n"]) < min_baseline_n:
+            excluded.append({**entry, "exclusion_reason": "insufficient_baseline", "exclusion_detail": f"基线窗口内只有 {baseline.get('history_n', baseline['n'])} 天历史，少于 min_baseline_n={min_baseline_n}"})
+        elif baseline["n"] < 3:
+            excluded.append({**entry, "exclusion_reason": "insufficient_baseline_points", "exclusion_detail": f"进入基线计算的点只有 {baseline['n']} 个，中位数与 MAD 不可用"})
+        else:
+            rows.append(entry)
+
+    warmup_excluded = sum(1 for item in excluded if item["exclusion_reason"] == "warmup_period")
+    baseline_excluded = len(excluded) - warmup_excluded
+    limitations = [
+        "基线是中位数（同星期优先）：一次水平位移之后基线会被位移后的数据污染，位移后前几周的偏离会被系统性低估。",
+        "robust z 只描述偏离幅度，不说明原因，也没有做多重比较校正；按 |z| 取前几名本质上是在同一序列上反复挑选最大值。",
+        "前 warmup_days 天不做判定，基线窗口内历史少于 min_baseline_n 天的日期也不做判定（两者口径不同：前者按位置，后者按可用历史），理由逐条写在 excluded_rows；代价是序列开头几天的真实事故不会被报出来。",
+        "周内效应只按「同星期中位数」处理，且要求同星期点达到 min_points_for_weekday（默认 8，即整 8 周）才启用，否则回退到滚动窗口中位数：月内周期、节假日和促销档期都不会被这套基线吸收。",
+        "日期是按天聚合后计算的：单日缺失会被跳过，不会补 0，因此缺口和真实低值在这里看起来一样。",
+    ]
+    if warmup_excluded and not rows:
+        limitations.append("全部日期都被 warmup_days 或 min_baseline_n 排除，本次没有可判定的异动日；请给更长的序列或下调门禁。")
+    if len(rows) < 5:
+        limitations.append(f"可判定日期只有 {len(rows)} 天，排名极不稳定，不要按名次解读。")
+    return {
+        "op": "anomaly_scan",
+        "metric": metric,
+        "date_field": date_field,
+        "gates": {"min_baseline_n": min_baseline_n, "min_baseline_n_means": "基线窗口内可用历史天数下限", "warmup_days": warmup_days, "baseline_window_days": baseline_window_days, "min_same_weekday": int(config.get("min_same_weekday", 2)), "min_points_for_weekday": int(config.get("min_points_for_weekday", 8)), "min_points_for_weekday_means": "同星期基线要求的最少同星期点；不足则回退到滚动窗口"},
+        "coverage": {"total_days": int(len(work)), "judged_days": len(rows), "excluded_days": len(excluded), "excluded_warmup": warmup_excluded, "excluded_insufficient_baseline": baseline_excluded, "excluded_insufficient_baseline_points": len(excluded) - warmup_excluded - baseline_excluded},
+        "rows": sorted(rows, key=lambda item: abs(item["deviation"].get("robust_z") or 0), reverse=True),
+        "excluded_rows": excluded,
+        "limitations": limitations,
+    }
 
 
 OPERATORS = {"funnel_rates": op_funnel, "contribution": op_contribution, "ratio_decomp": op_ratio_decomp, "ab_effect": op_ab_effect, "segment_profile": op_segment_profile, "anomaly_scan": op_anomaly_scan}

@@ -1,6 +1,6 @@
 # 报告设计与渲染协议
 
-报告由 `scripts/da_report.py` 渲染：**你只写紧凑的规格 JSON，脚本负责排版、图表、主题和动效**。不要手写 HTML——手写一份报告约 10,000 token，写规格约 2,000–3,000。
+报告由 `scripts/da_report.py` 渲染：**你只写紧凑的规格 JSON，脚本负责排版、图表、主题和动效**。不要手写 HTML——手写一份等价报告实测 7,810 token（`o200k_base`）/ 8,134（`cl100k_base`），写规格实测 2,736 / 3,043，约 1:2.9（口径与复算命令见 `README.md`「自检 · 测量口径」）。
 
 ```bash
 python scripts/da_report.py --spec <运行目录>/report_spec.json --out <运行目录>/report.html

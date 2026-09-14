@@ -1,0 +1,45 @@
+{
+  "op": "contribution",
+  "group_field": "区域",
+  "value_field": "净收入",
+  "total": {
+    "baseline": 924820.1066666667,
+    "current": 1426587.5399999998,
+    "gap": 501767.4333333331
+  },
+  "groups": [
+    {
+      "group": "英国",
+      "baseline": 766233.1733333333,
+      "current": 1258370.88,
+      "delta": 492137.70666666655,
+      "share_of_gap": 0.9808083864616431,
+      "evidence_id": "C-001"
+    },
+    {
+      "group": "非英国",
+      "baseline": 158586.93333333332,
+      "current": 168216.66,
+      "delta": 9629.726666666684,
+      "share_of_gap": 0.019191613538357088,
+      "evidence_id": "C-002"
+    }
+  ],
+  "limitations": [
+    "只对总量缺口做加总对账，不解释缺口原因：贡献度大不等于「责任大」，它只是缺口在分组间的分配。",
+    "share_of_gap 在正负抵消时不可读：缺口接近 0 时分母不稳，此时只看 delta 绝对值，不要比 share。",
+    "分组必须可加总：如果同一实体（订单、用户）被重复计入多个组，缺口会被重复计算。",
+    "baseline 与 current 的过滤条件必须口径一致，否则贡献度里会混入口径切换的效果。"
+  ],
+  "sheet": "window_table",
+  "config": {
+    "group_field": "区域",
+    "value_field": "净收入",
+    "current_filter": {
+      "期间": "当前"
+    },
+    "baseline_filter": {
+      "期间": "基线"
+    }
+  }
+}

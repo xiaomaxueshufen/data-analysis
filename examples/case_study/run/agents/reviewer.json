@@ -1,0 +1,121 @@
+{
+  "agent": "reviewer",
+  "status": "ok",
+  "generated_at": "2026-09-14T06:30:00+00:00",
+  "scope": "逐条审查结论的证据引用、基线一致性与因果措辞；只输出 pass / downgrade / block",
+  "inputs": [
+    "claims.json",
+    "evidence.json",
+    "02_reconcile.json",
+    "前三个角色工件",
+    "report_spec.json"
+  ],
+  "findings": [
+    {
+      "statement": "C001 通过：窗口与行数直接来自 profile 与清洗日志。",
+      "level": "L0",
+      "evidence_ids": [
+        "E001"
+      ],
+      "limitations": [],
+      "confidence": "high"
+    },
+    {
+      "statement": "C002 通过：合计数字挂在对账条目 R005 上，对账状态为 consistent。",
+      "level": "L0",
+      "evidence_ids": [
+        "R005",
+        "E003"
+      ],
+      "limitations": [],
+      "confidence": "high"
+    },
+    {
+      "statement": "C005 降级为 L1：两年同期见顶只是两次观测到的比较，不是可闭合的机制证据；「与季节性一致」保留，但不得写成解释。",
+      "level": "L1",
+      "evidence_ids": [
+        "E006",
+        "E007"
+      ],
+      "limitations": [
+        "只有两年"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "C010 降级为 L1 并改写措辞：水平位移是统计结构变化，断点由数据挑选、位移后仅 69 天，只能写成「检测到位移」。",
+      "level": "L1",
+      "evidence_ids": [
+        "E013"
+      ],
+      "limitations": [
+        "断点位置数据挑选"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "C008 通过但要求补齐复算路径：结论依赖未提交的原始明细，报告附录必须写明获取方式与 sha256。",
+      "level": "L2",
+      "evidence_ids": [
+        "E011"
+      ],
+      "limitations": [
+        "原始明细未随仓库提交"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "C013/C014 通过但必须带口径限制：去重与不去重的单日极值不同，报告不得把「最高日」写成口径无关的事实。",
+      "level": "L1",
+      "evidence_ids": [
+        "E002",
+        "E015"
+      ],
+      "limitations": [
+        "口径敏感"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "C013 通过：同比与区域结构在两种清洗口径下方向一致。",
+      "level": "L1",
+      "evidence_ids": [
+        "E002",
+        "E006"
+      ],
+      "limitations": [],
+      "confidence": "high"
+    },
+    {
+      "statement": "全表控制：报告不得出现导致 / 证明 / 根因这类措辞。",
+      "level": "L0",
+      "evidence_ids": [
+        "E001"
+      ],
+      "limitations": [],
+      "confidence": "high"
+    }
+  ],
+  "verdict": {
+    "passed": [
+      "C001",
+      "C002",
+      "C003",
+      "C004",
+      "C006",
+      "C007",
+      "C009",
+      "C011",
+      "C012",
+      "C015"
+    ],
+    "downgraded": [
+      "C005",
+      "C010"
+    ],
+    "blocked": [],
+    "notes": "C005 与 C010 由 L2 降为 L1；C008/C013/C014 通过但必须携带口径与复算说明。"
+  },
+  "conflicts": [],
+  "missing_data": []
+}

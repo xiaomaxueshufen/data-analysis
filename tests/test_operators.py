@@ -501,6 +501,97 @@ def test_error_paths() -> None:
                  {"price_field": "p", "quantity_field": "q"})
 
 
+# ---------------------------------------------------------------- 异动门禁
+
+
+def test_anomaly_gates() -> None:
+    """anomaly_scan 的两道门禁：warmup_days 与基线可用性。
+
+    回归目标：旧实现在序列开头只有 1–2 个基线点时，会用一个「|base| × 1%」的
+    尺度下限算出 |robust z| > 10 的假异动，把真正的异动挤出榜首。
+    """
+    import da_ops
+
+    dates = [d.strftime("%Y-%m-%d") for d in pd.date_range("2026-01-01", periods=90, freq="D")]
+    values = [1000.0 + (i % 7) * 5 for i in range(90)]
+    values[1] = 800.0    # 第 2 天：基线只有 1 天，旧实现把它排到第一
+    values[45] = 3000.0  # 第 46 天：真实异动
+    frame = pd.DataFrame({"日期": dates, "订单量": values})
+
+    result = da_ops.op_anomaly_scan(frame, {"date_field": "日期", "metric_field": "订单量"})
+    judged = [row["date"] for row in result["rows"]]
+    excluded = {row["date"]: row["exclusion_reason"] for row in result["excluded_rows"]}
+
+    check("anomaly_scan 前 14 天不参与判定", excluded.get(dates[0]) == "warmup_period", str(excluded.get(dates[0])))
+    check("anomaly_scan 关掉开头假异动", dates[1] not in judged)
+    check("anomaly_scan 真实异动排第一", judged[0] == dates[45], judged[0] if judged else "无判定行")
+    check("anomaly_scan 覆盖统计自洽",
+          result["coverage"]["judged_days"] + result["coverage"]["excluded_days"] == 90,
+          str(result["coverage"]))
+    check("anomaly_scan 门禁口径写进 gates",
+          result["gates"]["min_baseline_n"] == 14 and result["gates"]["warmup_days"] == 14
+          and result["gates"]["min_points_for_weekday"] == 8, str(result["gates"]))
+    check("anomaly_scan 附带 limitations", bool(result["limitations"]))
+    check("anomaly_scan 排除行带理由",
+          all(row.get("exclusion_reason") and row.get("exclusion_detail") for row in result["excluded_rows"]))
+
+    short = pd.DataFrame({
+        "日期": [d.strftime("%Y-%m-%d") for d in pd.date_range("2026-02-01", periods=25, freq="D")],
+        "订单量": [1000.0] * 25,
+    })
+    short_result = da_ops.op_anomaly_scan(short, {"date_field": "日期", "metric_field": "订单量"})
+    check("anomaly_scan 同星期点不足时回退滚动窗口",
+          bool(short_result["rows"]) and all(row["baseline"]["method"] == "rolling_window" for row in short_result["rows"]),
+          str([row["baseline"]["method"] for row in short_result["rows"]][:3]))
+
+    # 关掉 warmup 与 min_baseline_n：序列开头仍然因为基线点太少（< 3）被排除，
+    # 不会退回「1 个点的中位数也能当基线」的旧行为。
+    opened = da_ops.op_anomaly_scan(frame, {
+        "date_field": "日期", "metric_field": "订单量", "warmup_days": 0, "min_baseline_n": 0,
+    })
+    opened_judged = [row["date"] for row in opened["rows"]]
+    opened_excluded = {row["date"]: row["exclusion_reason"] for row in opened["excluded_rows"]}
+    check("anomaly_scan 门禁可关闭后判定范围扩大", len(opened_judged) > len(judged))
+    check("anomaly_scan 关掉 warmup 后开头仍被基线点下限挡住",
+          dates[1] not in opened_judged and opened_excluded.get(dates[1]) == "insufficient_baseline_points",
+          str({k: v for k, v in list(opened_excluded.items())[:3]}))
+    check("anomaly_scan 基线点足够后开始判定", dates[3] in opened_judged)
+
+    try:
+        da_ops.op_anomaly_scan(frame, {"date_field": "日期", "metric_field": "订单量", "warmup_days": -1})
+    except ValueError:
+        check("anomaly_scan 拒绝负数门禁", True)
+    else:
+        check("anomaly_scan 拒绝负数门禁", False, "负 warmup_days 没有报错")
+
+
+def test_legacy_operator_limitations() -> None:
+    """早期 6 个算子必须和后来的算子一样输出 limitations。"""
+    import da_ops
+
+    frame = pd.DataFrame({
+        "日期": [d.strftime("%Y-%m-%d") for d in pd.date_range("2026-01-01", periods=20, freq="D")],
+        "渠道": (["A", "B"] * 10),
+        "访客数": [100 + i for i in range(20)],
+        "下单数": [40 + i for i in range(20)],
+        "金额": [1000.0 + 10 * i for i in range(20)],
+    })
+    cases = {
+        "funnel_rates": {"stages": ["访客数", "下单数"]},
+        "contribution": {"group_field": "渠道", "value_field": "金额"},
+        "ratio_decomp": {"group_field": "渠道", "numerator_field": "下单数", "denominator_field": "访客数"},
+        "ab_effect": {"variant_field": "渠道", "metric_field": "访客数", "control": "A", "treatment": "B"},
+        "segment_profile": {"segment_field": "渠道", "metrics": [{"field": "金额", "agg": "sum"}]},
+        "anomaly_scan": {"date_field": "日期", "metric_field": "金额"},
+    }
+    for name, config in cases.items():
+        result = da_ops.OPERATORS[name](frame, config)
+        limitations = result.get("limitations")
+        check(f"{name} 输出 limitations",
+              isinstance(limitations, list) and len(limitations) >= 3,
+              str(limitations)[:60] if limitations else "缺失")
+
+
 def main() -> int:
     for suite in (
         test_chi_square,
@@ -516,6 +607,8 @@ def main() -> int:
         test_rfm,
         test_price_elasticity,
         test_error_paths,
+        test_anomaly_gates,
+        test_legacy_operator_limitations,
     ):
         before = len(RESULTS)
         try:

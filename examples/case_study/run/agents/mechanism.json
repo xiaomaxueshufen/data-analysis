@@ -1,0 +1,104 @@
+{
+  "agent": "mechanism",
+  "status": "ok",
+  "generated_at": "2026-09-14T06:22:00+00:00",
+  "scope": "只回答「哪些可观测变量与异动同步、哪些解释被排除」，不做因果断言",
+  "inputs": [
+    "data/retail_daily.csv",
+    "run/02_reconcile.json",
+    "run/anomaly_scan.json",
+    "run/contribution.json"
+  ],
+  "findings": [
+    {
+      "statement": "11 月高值与年度季节性同步出现：2011-11 与 2010-11 分别是两年里净收入最高的月份，同比只差 2.29%。",
+      "level": "L2",
+      "evidence_ids": [
+        "E006",
+        "E007"
+      ],
+      "limitations": [
+        "只有两年，无法排除两年共同的外部因素"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "11 月的增量几乎全部由英国贡献（98.08%），英国在全期占 85.43%。",
+      "level": "L2",
+      "evidence_ids": [
+        "E009",
+        "E008"
+      ],
+      "limitations": [
+        "英国占比高是结构事实，不解释增长来源"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "2011-09-20 的高值不是单笔大单造成的：当天 77 个订单、1,718 行明细，最大单笔只有 7,144.72。",
+      "level": "L2",
+      "evidence_ids": [
+        "E012"
+      ],
+      "limitations": [
+        "未逐单核对，行数与最大单笔只是间接证据"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "2011-12-09 的毛销售额高点可以由同日一笔被取消的订单解释：最大单笔 168,469.60，同日被 7 行负数量冲回 168,789.07。",
+      "level": "L2",
+      "evidence_ids": [
+        "E011",
+        "E010"
+      ],
+      "limitations": [
+        "复算需要未提交的原始明细"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "2011-09-21 的水平位移与年末旺季在时间上重叠：位移后的 69 个交易日正好落在 9 月下旬到 12 月上旬的爬坡段。",
+      "level": "L2",
+      "evidence_ids": [
+        "E013",
+        "E007"
+      ],
+      "limitations": [
+        "时间重叠不等于位移由旺季造成"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "被排除的解释：退货口径不足以解释任何月度变化，退货只占销售金额 3.65%。",
+      "level": "L1",
+      "evidence_ids": [
+        "E004",
+        "E005"
+      ],
+      "limitations": [
+        "未逐月核对退货率"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "无法测试的解释：投放、促销与竞品行为在本数据里没有任何字段，标记为 not_testable。",
+      "level": "L0",
+      "evidence_ids": [
+        "E001"
+      ],
+      "limitations": [
+        "不在数据里不等于不存在"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "conflicts": [
+    "机制一（季节性）与机制五（旺季爬坡）描述同一段上升，现有字段无法区分"
+  ],
+  "missing_data": [
+    "促销与投放记录",
+    "竞品价格",
+    "订单级明细"
+  ]
+}

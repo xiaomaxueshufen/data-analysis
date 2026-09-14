@@ -1,0 +1,101 @@
+{
+  "agent": "falsifier",
+  "status": "ok",
+  "generated_at": "2026-09-14T06:25:00+00:00",
+  "scope": "主动找反例：样本太小、分母变化、相反维度、数据事故、口径切换",
+  "inputs": [
+    "data/retail_daily.csv",
+    "run/anomaly_scan.json",
+    "run/changepoint_scan.json",
+    "run/analysis_output.json",
+    "build_dataset.py 的清洗日志"
+  ],
+  "findings": [
+    {
+      "statement": "反例一：12 月上旬的「断崖」是数据截断加一笔被取消的订单，不是需求下滑。截断日只有半天记录，当天最大单笔被全额冲回。",
+      "level": "L2",
+      "evidence_ids": [
+        "E010",
+        "E011"
+      ],
+      "limitations": [
+        "需要原始明细复算"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "反例二：单日极值对清洗口径敏感。不去重时单日最高值是 162,262.04，去重后是 110,623.68，因此「最高日」不是稳健结论。",
+      "level": "L1",
+      "evidence_ids": [
+        "E002",
+        "E015"
+      ],
+      "limitations": [
+        "两种口径都保留了同一批大单"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "反例三：水平位移的 t 值很大，但断点位置由数据挑选、位移后只有 69 天，且与年末旺季重叠，不能当成独立验证过的结构突变。",
+      "level": "L1",
+      "evidence_ids": [
+        "E013"
+      ],
+      "limitations": [
+        "没有做 sup-Wald 或分段验证"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "反例四：按日历日算日均会算错。739 个日历日里 135 天没有任何交易记录（104 天是周六），日均必须按交易日算。",
+      "level": "L0",
+      "evidence_ids": [
+        "E001",
+        "E016"
+      ],
+      "limitations": [
+        "无法区分停业与未采数"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "反例五：22.24% 的行没有客户 ID，用户级结论（留存、复购、RFM）在这份数据上只能覆盖有 ID 的子集。",
+      "level": "L0",
+      "evidence_ids": [
+        "E004"
+      ],
+      "limitations": [
+        "未验证缺失是否随机"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "反例六：退货与取消占销售金额 3.65%，用毛销售额讲的增长会被取消订单高估，本案例一律用净收入。",
+      "level": "L0",
+      "evidence_ids": [
+        "E004"
+      ],
+      "limitations": [
+        "退货按发票日期归集"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "反例七：异动排名第一名是同一序列上挑出来的最大值，没有多重比较校正，阈值一变前十名就会变。",
+      "level": "L1",
+      "evidence_ids": [
+        "E016",
+        "E012"
+      ],
+      "limitations": [
+        "未做 FDR 校正"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "conflicts": [],
+  "missing_data": [
+    "原始订单级明细（用于逐单核对高值日）",
+    "退货原因字段"
+  ]
+}

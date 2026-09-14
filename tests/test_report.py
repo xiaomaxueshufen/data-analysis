@@ -414,6 +414,52 @@ def test_baseline_label_avoids_value_label(tmp_path: Path) -> None:
     check("图表标注带底色描边光晕", "paint-order:stroke fill" in markup)
 
 
+def test_example_report_is_reproducible(tmp_path: Path) -> None:
+    """已提交的示例 HTML 必须是示例规格的逐字节产物。
+
+    这条断言把「渲染器改版」与「忘记重新生成示例」区分开：CI 会直接失败。
+    """
+    spec_path = ROOT / "examples" / "report_spec.example.json"
+    committed = ROOT / "examples" / "report_example.html"
+    out_path = tmp_path / "example.html"
+    completed = subprocess.run(
+        [sys.executable, str(REPORT), "--spec", str(spec_path), "--out", str(out_path)],
+        capture_output=True, text=True,
+    )
+    check("示例规格能渲染", completed.returncode == 0, completed.stdout[:120])
+    rendered = out_path.read_text(encoding="utf-8")
+    check("示例 HTML 与提交版本逐字节一致",
+          rendered == committed.read_text(encoding="utf-8"),
+          f"渲染 {len(rendered)} 字节 vs 提交 {committed.stat().st_size} 字节；改了渲染器就重新生成示例")
+
+
+def test_case_study_report_renders() -> None:
+    """案例报告必须能渲染，且满足零外部请求与六段式。"""
+    import tempfile
+
+    spec_path = ROOT / "examples" / "case_study" / "run" / "report_spec.json"
+    if not spec_path.is_file():
+        check("案例规格存在", False, str(spec_path))
+        return
+    with tempfile.TemporaryDirectory() as directory:
+        out_path = Path(directory) / "case.html"
+        completed = subprocess.run(
+            [sys.executable, str(REPORT), "--spec", str(spec_path), "--out", str(out_path)],
+            capture_output=True, text=True,
+        )
+        check("案例规格能渲染", completed.returncode == 0, completed.stdout[:160])
+        markup = out_path.read_text(encoding="utf-8") if out_path.exists() else ""
+        check("案例报告零外部请求", not any(token in markup for token in ("http://", "https://", "//cdn", "@import")))
+        check("案例报告六段式齐全",
+              all(title in markup for title in ("核心发现", "分析背景与目标", "数据概况", "深入分析", "结论与建议", "附录")))
+        check("案例报告挂上对账与角色工件路径",
+              "da_reconcile" in markup and "run/agents/falsifier.json" in markup)
+        committed = ROOT / "examples" / "case_study" / "run" / "report.html"
+        check("案例报告与提交版本逐字节一致",
+              markup == committed.read_text(encoding="utf-8"),
+              f"渲染 {len(markup)} 字节 vs 提交 {committed.stat().st_size} 字节")
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as directory:
         tmp_path = Path(directory)
@@ -433,6 +479,8 @@ def main() -> int:
             test_number_formatting_consistent,
             test_data_color_separable_from_ui_accent,
             test_default_theme_is_graphite,
+            test_example_report_is_reproducible,
+            test_case_study_report_renders,
             test_emit_example_round_trips,
             test_baseline_label_avoids_value_label,
         ):

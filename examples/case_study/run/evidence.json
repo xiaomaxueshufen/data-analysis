@@ -1,0 +1,175 @@
+{
+  "schema_version": "1.0",
+  "run": "examples/case_study/run",
+  "source": {
+    "file": "examples/case_study/data/retail_daily.csv",
+    "sha256": "3a3ab1e0e66fd71191cbc89572870eb3925586559466f5baf10748ae58b235a7",
+    "raw_source": "UCI Online Retail II (CC BY 4.0)",
+    "raw_sha256": "32569a66f3842a82b0d8c4d63b263c5d98a76bde5d1f65c6c01bf457e541d3a9"
+  },
+  "evidence": [
+    {
+      "id": "E001",
+      "kind": "profile",
+      "file": "retail_daily.csv",
+      "sheet": "retail_daily",
+      "scope": "全表",
+      "cleaned_detail_rows": 1021333,
+      "trading_days": 604,
+      "calendar_days": 739,
+      "missing_days": 135,
+      "saturday_missing_days": 104,
+      "aggregate_rows": 1183,
+      "note": "窗口 2009-12-01 至 2011-12-09；明细行数来自 build_dataset.py 的清洗日志"
+    },
+    {
+      "id": "E002",
+      "kind": "cleaning_impact",
+      "scope": "全表",
+      "duplicates_removed_rows": 34039,
+      "duplicates_removed_amount": 456811.41,
+      "non_product_rows": 5825,
+      "non_product_amount": -98112.7,
+      "zero_value_rows": 6174,
+      "net_revenue_with_duplicates": 19385363.27,
+      "net_revenue_deduped": 18928551.86,
+      "dedupe_impact_on_total_percent": 2.41,
+      "november_2011_without_dedupe": 1432734.99,
+      "nov_vs_q3_mean_without_dedupe_percent": 54.68,
+      "uk_share_without_dedupe_percent": 85.6,
+      "top_day_without_dedupe_value": 162262.04
+    },
+    {
+      "id": "E003",
+      "kind": "reconciliation",
+      "scope": "全表明细 / 退货金额",
+      "stated": 716495.53,
+      "computed": 716495.53,
+      "status": "consistent",
+      "verified": true
+    },
+    {
+      "id": "E004",
+      "kind": "metric",
+      "scope": "全表",
+      "missing_customer_id_rows": 227172,
+      "missing_customer_id_share_percent": 22.24,
+      "returns_share_of_sales_percent": 3.65
+    },
+    {
+      "id": "E005",
+      "kind": "window_compare",
+      "scope": "2011-11 对比 2011-08..10 月均",
+      "current_month_net_revenue": 1426587.54,
+      "baseline_monthly_mean_net_revenue": 924820.11,
+      "gap": 501767.43,
+      "growth_percent": 54.26
+    },
+    {
+      "id": "E006",
+      "kind": "yoy_compare",
+      "scope": "2011-11 对比 2010-11",
+      "november_2011": 1426587.54,
+      "november_2010": 1394652.8599999999,
+      "yoy_percent": 2.29
+    },
+    {
+      "id": "E007",
+      "kind": "seasonality",
+      "scope": "月度净收入前四",
+      "november_2011_rank1": 1426587.54,
+      "november_2010_rank2": 1394652.8599999999,
+      "october_2011": 1061717.8900000001,
+      "october_2010": 1069112.56
+    },
+    {
+      "id": "E008",
+      "kind": "structure",
+      "scope": "英国 / 非英国 净收入占比",
+      "uk_share_percent": 85.43,
+      "non_uk_share_percent": 14.57
+    },
+    {
+      "id": "E009",
+      "kind": "contribution",
+      "scope": "2011-11 缺口按区域",
+      "gap": 501767.43,
+      "uk_delta": 492137.71,
+      "uk_share_of_gap": 0.9808,
+      "non_uk_delta": 9629.73
+    },
+    {
+      "id": "E010",
+      "kind": "truncation",
+      "scope": "2011-12-09 与前一交易日",
+      "net_revenue": 29530.26,
+      "prev_day_net_revenue": 76493.97,
+      "orders": 48,
+      "change_percent": -61.4
+    },
+    {
+      "id": "E011",
+      "kind": "raw_detail_check",
+      "scope": "原始明细 2011-12-09 最大单笔",
+      "invoice_amount": 168469.6,
+      "units": 80995,
+      "reversal_amount": -168789.07,
+      "reversal_rows": 7,
+      "raw_sha256": "32569a66f3842a82b0d8c4d63b263c5d98a76bde5d1f65c6c01bf457e541d3a9",
+      "note": "原始明细未随仓库提交，复算需要按 build_dataset.py 的记录获取同一 sha256 的文件"
+    },
+    {
+      "id": "E012",
+      "kind": "anomaly",
+      "scope": "净收入日序列异常排名第一",
+      "date": "2011-09-20",
+      "value": 108277.04,
+      "robust_z": 15.33,
+      "baseline_n": 8,
+      "baseline_method": "same_weekday",
+      "orders": 77,
+      "lines": 1718,
+      "largest_single_order": 7144.72
+    },
+    {
+      "id": "E013",
+      "kind": "changepoint",
+      "scope": "净收入水平位移",
+      "break_date": "2011-09-21",
+      "relative_shift_percent": 62.08,
+      "t_statistic": 9.28,
+      "ci_low": 14470.09,
+      "ci_high": 22215.69,
+      "days_after": 69,
+      "p_note": "p 值按正态近似给出，且断点位置是数据挑选出来的，实际显著性弱于该数值。"
+    },
+    {
+      "id": "E014",
+      "kind": "anomaly",
+      "scope": "负向异动排名第一",
+      "date": "2010-12-19",
+      "value": 7270.87,
+      "robust_z": -9.43,
+      "orders": 25
+    },
+    {
+      "id": "E015",
+      "kind": "metric",
+      "scope": "单日净收入最高",
+      "date": "2011-11-14",
+      "net_revenue": 110623.68
+    },
+    {
+      "id": "E016",
+      "kind": "gate",
+      "scope": "anomaly_scan 门禁与覆盖",
+      "judged_days": 590,
+      "excluded_warmup_days": 14,
+      "warmup_days": 14,
+      "min_baseline_n": 14,
+      "min_points_for_weekday": 8,
+      "first_judged_date": "2009-12-16",
+      "first_excluded_date": "2009-12-01"
+    }
+  ]
+}

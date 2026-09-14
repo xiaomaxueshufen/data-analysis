@@ -572,6 +572,45 @@ def test_lenient_numbers_switch() -> None:
     check("--lenient-numbers 退回警告", lenient["status"] == "warn", f"status={lenient['status']}")
 
 
+def test_calendar_labels_not_required() -> None:
+    """日历写法（2011-11、11 月、2011 年 11 月 14 日）不是结论数字。
+
+    回归目标：DATE_PATTERN 只认 YYYY-MM-DD，导致「2011-11」「11 月」里的
+    2011 / 11 被当成待溯源数字，逼模型把「11 月」改写成完整日期才能过闸。
+    """
+    evidence = {"evidence": [{"id": "E001", "kind": "metric", "value": 1426587.54, "verified": True}]}
+    for statement in (
+        "2011-11 净收入 1,426,587.54",
+        "11 月净收入 1,426,587.54",
+        "2011 年 11 月净收入 1,426,587.54",
+    ):
+        report = run_verify(
+            [{"claim_id": "C001", "statement": statement, "level": "L0",
+              "evidence_ids": ["E001"], "limitations": []}],
+            evidence,
+        )
+        check(f"日历写法不参与溯源：{statement}",
+              "untraceable_number" not in codes_of(report), f"codes={sorted(codes_of(report))}")
+
+
+def test_agent_manifest_requires_agents_dir() -> None:
+    """--require-agent-manifest 不带 --agents-dir 时必须硬失败，不能静默通过。"""
+    with tempfile.TemporaryDirectory() as directory:
+        base = Path(directory)
+        claims_path = base / "claims.json"
+        claims_path.write_text(json.dumps({"claims": []}, ensure_ascii=False), encoding="utf-8")
+        command = [sys.executable, str(VERIFY), "--claims", str(claims_path), "--require-agent-manifest"]
+        completed = subprocess.run(command, capture_output=True, text=True)
+        check("缺 --agents-dir 时退出码为 2", completed.returncode == 2, f"rc={completed.returncode}")
+        try:
+            payload = json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            payload = {}
+        check("缺 --agents-dir 时给出结构化错误",
+              payload.get("status") == "fail" and "agents-dir" in str(payload.get("error", "")),
+              str(payload)[:120])
+
+
 def main() -> int:
     for suite in (
         test_evidence_required,
@@ -584,6 +623,8 @@ def main() -> int:
         test_identification_strategy_required,
         test_label_numbers_not_required,
         test_reconciliation_integration,
+        test_calendar_labels_not_required,
+        test_agent_manifest_requires_agents_dir,
         test_lenient_numbers_switch,
     ):
         before = len(RESULTS)

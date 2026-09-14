@@ -1,0 +1,196 @@
+{
+  "status": "pass",
+  "checked_at": "2026-09-14T06:01:43+00:00",
+  "total": 15,
+  "passed": 15,
+  "warned": 0,
+  "failed": 0,
+  "noted": 0,
+  "p_hacking_warnings": [],
+  "agent_issues": [],
+  "evidence_summary": {
+    "numbers_collected": 92,
+    "structured_entries": 22,
+    "reconciliation_entries": 7,
+    "binding_modes": {
+      "scoped": 15
+    },
+    "reconciliation_supplied": true
+  },
+  "claims": [
+    {
+      "claim_id": "C001",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E001"
+        ]
+      }
+    },
+    {
+      "claim_id": "C002",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "R005",
+          "E003",
+          "E004"
+        ]
+      }
+    },
+    {
+      "claim_id": "C003",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E004"
+        ]
+      }
+    },
+    {
+      "claim_id": "C004",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E005"
+        ]
+      }
+    },
+    {
+      "claim_id": "C005",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E006",
+          "E007"
+        ]
+      }
+    },
+    {
+      "claim_id": "C006",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E009",
+          "E008"
+        ]
+      }
+    },
+    {
+      "claim_id": "C007",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E010"
+        ]
+      }
+    },
+    {
+      "claim_id": "C008",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E011",
+          "E010"
+        ]
+      }
+    },
+    {
+      "claim_id": "C009",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E012"
+        ]
+      }
+    },
+    {
+      "claim_id": "C010",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E013"
+        ]
+      }
+    },
+    {
+      "claim_id": "C011",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E014"
+        ]
+      }
+    },
+    {
+      "claim_id": "C012",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E016",
+          "E001"
+        ]
+      }
+    },
+    {
+      "claim_id": "C013",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E002",
+          "E006"
+        ]
+      }
+    },
+    {
+      "claim_id": "C014",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E015",
+          "E002"
+        ]
+      }
+    },
+    {
+      "claim_id": "C015",
+      "status": "pass",
+      "issues": [],
+      "evidence_binding": {
+        "mode": "scoped",
+        "bound_ids": [
+          "E004",
+          "E001"
+        ]
+      }
+    }
+  ]
+}

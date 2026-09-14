@@ -1,0 +1,99 @@
+{
+  "agent": "locator",
+  "status": "ok",
+  "generated_at": "2026-09-14T06:20:00+00:00",
+  "scope": "只回答「哪里发生了什么变化」，不写机制原因",
+  "inputs": [
+    "data/retail_daily.csv",
+    "run/01_profile.json",
+    "run/02_reconcile.json",
+    "run/analysis_output.json",
+    "run/anomaly_scan.json",
+    "run/changepoint_scan.json"
+  ],
+  "findings": [
+    {
+      "statement": "数据覆盖 2009-12-01 至 2011-12-09，604 个交易日，清洗后 1,021,333 行明细。",
+      "level": "L0",
+      "evidence_ids": [
+        "E001"
+      ],
+      "limitations": [
+        "聚合表不含单笔订单"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "2011-11 净收入 1,426,587.54，比 2011-08..10 月均 924,820.11 高 54.26%，缺口 501,767.43。",
+      "level": "L1",
+      "evidence_ids": [
+        "E005"
+      ],
+      "limitations": [
+        "月度对比未按交易日数归一"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "缺口按区域拆：英国 492,137.71（占 98.08%），非英国 9,629.73。",
+      "level": "L1",
+      "evidence_ids": [
+        "E009"
+      ],
+      "limitations": [
+        "非英国内部国别被合并"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "日序列里正向偏离最大的日期是 2011-09-20（108,277.04，robust z 15.33），负向偏离最大的是 2010-12-19（7,270.87，robust z -9.43）。",
+      "level": "L0",
+      "evidence_ids": [
+        "E012",
+        "E014"
+      ],
+      "limitations": [
+        "robust z 未做多重比较校正"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "分段检测把水平位移定位在 2011-09-21，位移幅度 62.08%，位移之后只有 69 个交易日。",
+      "level": "L1",
+      "evidence_ids": [
+        "E013"
+      ],
+      "limitations": [
+        "断点位置由数据挑选"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "statement": "序列尾部：2011-12-09 净收入 29,530.26，比前一交易日 76,493.97 低 61.39%，当天仍有 48 个订单。",
+      "level": "L0",
+      "evidence_ids": [
+        "E010"
+      ],
+      "limitations": [
+        "当天是数据截断日"
+      ],
+      "confidence": "high"
+    },
+    {
+      "statement": "日历上有 135 天没有任何交易记录，其中 104 天是周六。",
+      "level": "L0",
+      "evidence_ids": [
+        "E001"
+      ],
+      "limitations": [
+        "无法区分停业与未采数"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "conflicts": [],
+  "missing_data": [
+    "促销/投放日历",
+    "单笔订单级明细（未随仓库提交）"
+  ]
+}

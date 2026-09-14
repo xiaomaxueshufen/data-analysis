@@ -1,0 +1,293 @@
+{
+  "schema_version": "1.0",
+  "file": {
+    "path": "/Users/caozhonghui/Documents/Codex/2026-09-14/https-github-com-xiaomaxueshufen-data-analysis/work/repo/examples/case_study/data/retail_daily.csv",
+    "name": "retail_daily.csv",
+    "suffix": ".csv",
+    "size_bytes": 65883,
+    "sha256": "3a3ab1e0e66fd71191cbc89572870eb3925586559466f5baf10748ae58b235a7"
+  },
+  "main_table": "retail_daily",
+  "sheets": [
+    {
+      "name": "retail_daily",
+      "rows": 1184,
+      "columns": 9,
+      "header_row_zero_based": 0,
+      "header_status": "detected",
+      "date_field": "日期",
+      "roles": {
+        "date": [
+          "日期"
+        ],
+        "region": [
+          "区域"
+        ]
+      },
+      "fields": [
+        {
+          "name": "日期",
+          "dtype": "str",
+          "missing_count": 0,
+          "missing_rate": 0.0,
+          "unique_count": 605,
+          "sample_values": [
+            "2009-12-01",
+            "2009-12-01",
+            "2009-12-02",
+            "2009-12-02",
+            "2009-12-03"
+          ],
+          "is_numeric": false,
+          "is_date_candidate": true,
+          "date_range": {
+            "min": "2009-12-01T00:00:00",
+            "max": "2011-12-09T00:00:00",
+            "unique_days": 604
+          }
+        },
+        {
+          "name": "区域",
+          "dtype": "str",
+          "missing_count": 0,
+          "missing_rate": 0.0,
+          "unique_count": 3,
+          "sample_values": [
+            "英国",
+            "非英国",
+            "英国",
+            "非英国",
+            "英国"
+          ],
+          "is_numeric": false,
+          "is_date_candidate": false
+        },
+        {
+          "name": "订单数",
+          "dtype": "int64",
+          "missing_count": 0,
+          "missing_rate": 0.0,
+          "unique_count": 141,
+          "sample_values": [
+            144,
+            10,
+            119,
+            8,
+            131
+          ],
+          "is_numeric": true,
+          "is_date_candidate": true,
+          "numeric": {
+            "min": 1.0,
+            "max": 46922.0,
+            "median": 25.0,
+            "mad": 22.0,
+            "mean": 79.26013513513513,
+            "std": 1363.0119598162664,
+            "n": 1184
+          },
+          "date_range": {
+            "min": "1970-01-01T00:00:00.000000001",
+            "max": "1970-01-01T00:00:00.000046922",
+            "unique_days": 1
+          }
+        },
+        {
+          "name": "销售件数",
+          "dtype": "int64",
+          "missing_count": 0,
+          "missing_rate": 0.0,
+          "unique_count": 1124,
+          "sample_values": [
+            22698,
+            3372,
+            27267,
+            4532,
+            48672
+          ],
+          "is_numeric": true,
+          "is_date_candidate": true,
+          "numeric": {
+            "min": 0.0,
+            "max": 11187818.0,
+            "median": 7389.0,
+            "mad": 5738.5,
+            "mean": 18898.341216216217,
+            "std": 325027.8831260663,
+            "n": 1184
+          },
+          "date_range": {
+            "min": "1970-01-01T00:00:00",
+            "max": "1970-01-01T00:00:00.011187818",
+            "unique_days": 1
+          }
+        },
+        {
+          "name": "销售金额",
+          "dtype": "float64",
+          "missing_count": 0,
+          "missing_rate": 0.0,
+          "unique_count": 1179,
+          "sample_values": [
+            46261.24,
+            6177.37,
+            54629.78,
+            7243.32,
+            71958.23
+          ],
+          "is_numeric": true,
+          "is_date_candidate": true,
+          "numeric": {
+            "min": 0.0,
+            "max": 19645047.39,
+            "median": 12818.535,
+            "mad": 10031.27,
+            "mean": 33184.2016722973,
+            "std": 570692.8962826435,
+            "n": 1184
+          },
+          "date_range": {
+            "min": "1970-01-01T00:00:00",
+            "max": "1970-01-01T00:00:00.019645047",
+            "unique_days": 1
+          }
+        },
+        {
+          "name": "退货金额",
+          "dtype": "float64",
+          "missing_count": 0,
+          "missing_rate": 0.0,
+          "unique_count": 920,
+          "sample_values": [
+            1095.74,
+            202.05,
+            114.2,
+            387.15,
+            3538.13
+          ],
+          "is_numeric": true,
+          "is_date_candidate": true,
+          "numeric": {
+            "min": 0.0,
+            "max": 716495.53,
+            "median": 87.38499999999999,
+            "mad": 87.38499999999999,
+            "mean": 1210.2965033783785,
+            "std": 21521.164117378197,
+            "n": 1184
+          },
+          "date_range": {
+            "min": "1970-01-01T00:00:00",
+            "max": "1970-01-01T00:00:00.000716495",
+            "unique_days": 1
+          }
+        },
+        {
+          "name": "净收入",
+          "dtype": "float64",
+          "missing_count": 0,
+          "missing_rate": 0.0,
+          "unique_count": 1184,
+          "sample_values": [
+            45165.5,
+            5975.32,
+            54515.58,
+            6856.17,
+            68420.1
+          ],
+          "is_numeric": true,
+          "is_date_candidate": true,
+          "numeric": {
+            "min": -7750.45,
+            "max": 18928551.86,
+            "median": 12450.095,
+            "mad": 9840.955,
+            "mean": 31973.90516891892,
+            "std": 549860.8564639989,
+            "n": 1184
+          },
+          "date_range": {
+            "min": "1969-12-31T23:59:59.999992250",
+            "max": "1970-01-01T00:00:00.018928551",
+            "unique_days": 2
+          }
+        },
+        {
+          "name": "活跃客户数",
+          "dtype": "float64",
+          "missing_count": 1,
+          "missing_rate": 0.0008445945945945946,
+          "unique_count": 123,
+          "sample_values": [
+            106.0,
+            8.0,
+            92.0,
+            6.0,
+            110.0
+          ],
+          "is_numeric": true,
+          "is_date_candidate": true,
+          "numeric": {
+            "min": 0.0,
+            "max": 145.0,
+            "median": 21.0,
+            "mad": 18.0,
+            "mean": 32.11327134404058,
+            "std": 30.473516582326287,
+            "n": 1183
+          },
+          "date_range": {
+            "min": "1970-01-01T00:00:00",
+            "max": "1970-01-01T00:00:00.000000145",
+            "unique_days": 1
+          }
+        },
+        {
+          "name": "缺客户ID行数",
+          "dtype": "int64",
+          "missing_count": 0,
+          "missing_rate": 0.0,
+          "unique_count": 413,
+          "sample_values": [
+            891,
+            0,
+            961,
+            2,
+            581
+          ],
+          "is_numeric": true,
+          "is_date_candidate": true,
+          "numeric": {
+            "min": 0.0,
+            "max": 227172.0,
+            "median": 4.0,
+            "mad": 4.0,
+            "mean": 383.7364864864865,
+            "std": 6605.339419629168,
+            "n": 1184
+          },
+          "date_range": {
+            "min": "1970-01-01T00:00:00",
+            "max": "1970-01-01T00:00:00.000227172",
+            "unique_days": 1
+          }
+        }
+      ],
+      "duplicate_rows": 0,
+      "source_ref": {
+        "sheet": "retail_daily",
+        "header_row": 1
+      },
+      "date_range": {
+        "min": "2009-12-01T00:00:00",
+        "max": "2011-12-09T00:00:00",
+        "unique_days": 604,
+        "missing_days_in_span": 135
+      }
+    }
+  ],
+  "notes": [
+    "字段角色是基于名称和类型的候选识别，必须在语义合同中确认。",
+    "画像不包含业务判断，所有异常结论需要进入后续计算步骤。"
+  ]
+}

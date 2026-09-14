@@ -9,6 +9,8 @@
 
 # Data Analysis Skill
 
+[![CI](https://github.com/xiaomaxueshufen/data-analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/xiaomaxueshufen/data-analysis/actions/workflows/ci.yml)
+
 这是一个多行业数据分析skill。用户上传 Excel 或 CSV 并提出问题后，模型自主识别决策意图、选择分析视角与方法组合、编写或调用计算、并撰写离线 HTML 报告。skill 只约束真实性边界，不固定视觉模板。确定性脚本仅作为可选的单点复核探针。
 
 
@@ -44,7 +46,7 @@
 9. 独立角色硬门禁：涉及“为什么/原因/异动”或 L2 及以上解释时，必须完成 Locator/Mechanism/Falsifier/Reviewer 四个角色的独立工件，缺一不可发布。
 10. 执行留痕：每次运行写 `agents/execution.json`，标明 `native_subagents` 或 `serial_fallback`；原生模式必须记录四个 agent id，回退模式必须记录原因。
 11. 报告渲染与内容分离：模型写规格 JSON，`da_report.py` 负责排版、图表和主题；禁止对数值几何做动画（条形生长 / 折线 draw-in / 数字 count-up 会在截图、打印、后台标签页里冻结成错误读数），只保留不改变几何的滚动显现并带超时兜底。
-12. 渐进式披露：`SKILL.md` 常驻正文压到 5,000 token 以内，并给出「哪一步读哪个文件」的加载表；`references/` 按需读取，`methods/` 与 `industries/` 明确禁止整体加载。
+12. 渐进式披露：`SKILL.md` 常驻正文保持精简（实测 `o200k_base` 4,124 / `cl100k_base` 5,279 token，口径见「自检 · 测量口径」），并给出「哪一步读哪个文件」的加载表；`references/` 按需读取，`methods/` 与 `industries/` 明确禁止整体加载。
 
 ## 参考标准
 
@@ -73,7 +75,7 @@
     → 交付前自检：文件存在 + 体积 + 六段式 + 后续建议 + limitations + 降级标注 + 无占位词
 ```
 
-交付物恒为 `outputs/<run>/report.html`。即使触发 Grill-Me 反问、质量门禁阻断、SRM 报警、识别策略不足、da_verify 失败或降级路径命中，也必须产出 HTML——降级报告以 HTML 形式交付并在文件顶部标注 `degraded` 模式 + 已读 / 未读 / 降级原因。
+交付物恒为 `outputs/<run>/report.html`。**唯一例外是 Grill-Me 反问轮**：那一轮只输出反问与默认假设、不产出 HTML，停下等用户回答；用户回答后进入正式分析，从那一刻起「必须产出」重新生效。除此之外一切情况都必须交付 HTML——质量门禁阻断、SRM 报警、识别策略不足、`da_verify` 失败或降级路径命中时，降级报告同样以 HTML 形式交付，并在文件顶部标注 `degraded` 模式 + 已读 / 未读 / 降级原因。
 
 运行工件保存为：
 
@@ -158,7 +160,7 @@ pip install -r requirements.txt
 
 ## 目录说明
 
-- `SKILL.md`：主流程、停止条件、证据层级和报告要求；常驻正文 ≈ 4,900 token，内含「哪一步读哪个文件」的渐进式披露加载表。
+- `SKILL.md`：主流程、停止条件、证据层级和报告要求；常驻正文实测 `o200k_base` 4,124 / `cl100k_base` 5,279 token（口径见「自检 · 测量口径」），内含「哪一步读哪个文件」的渐进式披露加载表。
 - `references/intent-routing.md`：由模型完成的任务路由提示词。
 - `references/clarify.md`：模糊问题的必要追问和默认假设协议。
 - `references/harness.md`：多 agent 的角色提示词、输入隔离、JSON 输出和合并规则。
@@ -167,25 +169,44 @@ pip install -r requirements.txt
 - `references/methods/`：异动、漏斗、指标体系、AB、因果、分层、贡献度、比率拆解、归因、同期群留存、生存/流失、路径分析、价格弹性、断点检测、实验设计与多重比较校正方法包。
 - `references/industries/`：行业口径模板。当前包含通用、零售电商、互联网 SaaS、物流快递、自媒体/内容创作、教育培训、增长与广告投放、互金、互联网游戏、双边平台与市场、本地生活与 O2O 共 11 套；每套都按”适用信号 → 业务链路与统计对象 → KPI（定义/必要字段/禁止推断）→ 数据门禁 → 分析主题 → 行业叙事 → **常见数据陷阱** → 图表 → 降级路径”组织。
 - `scripts/`：报告渲染器（`da_report.py`：规格 JSON → 自包含离线 HTML，五套主题、四种 SVG 图表、六段式骨架由代码写死，校验证据引用 / 层级 / 图表类型 / 占位词）、表头识别、结构画像、质量门禁、表内对账（`da_reconcile.py`：读原始单元格，用合计/小计行交叉验证明细，退出码可直接当流水线闸门）、通用分析算子（17 个：`anomaly_scan`、`funnel_rates`、`contribution`、`ratio_decomp`、`ab_effect`、`segment_profile` + `attribution` / `cohort_retention` / `survival` / `path_analysis` / `rfm` / `price_elasticity` / `power_mde` / `srm_check` / `multiple_testing` / `cuped` / `changepoint_scan`）和真实性校验器（`da_verify.py` 0.7.0：数字按 `evidence_ids` 绑定到具体证据条目、对账条目联动拦截、方向与符号一致的量纲匹配、负号与千分位可解析、序号不参与溯源、L2+ 因果措辞漏填识别策略即 fail），以及所有 CLI 共用的启动自检与输入防护（`da_envcheck.py`：缺 numpy / pandas 时给出可执行的安装指引，而不是裸 traceback；`da_common.py`：统一路径校验、坏输入结构化报错、非有限数值写成 `null` 保证 JSON 合法）。
-- `tests/`：不参与运行时的回归测试，全部使用内存合成数据；运行方式和覆盖范围见下面「自检」一节。
-- `examples/`：不参与运行时的示例报告，用于展示交付形态。
+- `scripts/da_measure.py`：把 README 里的效能数字变成可复算输出——常驻正文 token 数（按编码器分别计）、「写规格 vs 手写 HTML」的输出量差、覆盖率的复算命令口径；`--require-tiktoken` 让缺依赖变成失败。
+- `tests/`：不参与运行时的回归测试，全部使用内存合成数据；`conftest.py` 与 `.coveragerc` 让 subprocess 调用的 CLI 也计入覆盖率；运行方式和覆盖范围见下面「自检」一节。
+- `examples/`：不参与运行时的示例报告，用于展示交付形态；`examples/case_study/` 是一份基于公开数据集（UCI Online Retail II，CC BY 4.0）的真实脱敏案例，含数据构建脚本、全部运行工件、可复算的结论表和 `da_verify` 门禁结果。
+- `.github/workflows/ci.yml`：CI——74 项回归测试（Python 3.10 / 3.12 / 3.13）、案例工件真实性与对账门禁、示例报告与案例报告的逐字节渲染比对、覆盖率统计、token 口径复算。
+- `CHANGELOG.md`：变更记录；交付契约、门禁和效能数字的每次改动都记在这里。
 
 ## 自检
 
 仓库自带回归测试，全部用内存合成数据，不需要示例数据文件：
 
 ```bash
-pip install -r requirements.txt pytest   # pytest 只用于自检，不是 skill 的运行依赖
-python -m pytest tests/ -q               # 5 个模块，68 项
+pip install -r requirements.txt pytest pytest-cov tiktoken   # 这三个都只用于自检，不是 skill 的运行依赖
+python -m pytest tests/ -q               # 5 个模块，74 项
 python tests/test_report.py              # 每个文件也能单独执行，打印逐项 PASS/FAIL
 ```
 
-覆盖范围：算子性质（`test_operators`）、表内对账（`test_reconcile`）、报告渲染与规格校验（`test_report`）、
-真实性门禁（`test_verify`）、CLI 健壮性（`test_cli_robustness`：坏输入不抛栈、缺依赖给安装指引、
-17 个算子 × 8 种退化输入只允许「正常返回」或「DataError」）。
+覆盖范围：算子性质（`test_operators`：含 `anomaly_scan` 的 `warmup_days` / `min_baseline_n` 门禁与旧算子 `limitations`）、
+表内对账（`test_reconcile`）、报告渲染与规格校验（`test_report`：含示例报告与案例报告的逐字节可复现）、
+真实性门禁（`test_verify`：含 `--require-agent-manifest` 缺 `--agents-dir` 必须报错）、
+CLI 健壮性（`test_cli_robustness`：坏输入不抛栈、缺依赖给安装指引、17 个算子 × 8 种退化输入只允许「正常返回」或 `DataError`）。
+
+### 测量口径（token 与覆盖率）
+
+这两个数字都必须带口径，且都能用脚本复算：
+
+- **覆盖率**（当前合计 **81%**）：`COVERAGE_PROCESS_START=$PWD/.coveragerc python -m pytest tests/ -q --cov=scripts --cov-report=term`。口径是 `scripts/` 整仓（含全部 CLI、渲染器与算子），不是「核心模块」子集；`COVERAGE_PROCESS_START` 不能省——测试是用 subprocess 调用 CLI 的，不打开它就计不到 `da_verify` / `da_reconcile` / `da_report`（这几个会显示 0%）。
+- **token**：`pip install tiktoken && python scripts/da_measure.py`。同一份文本在不同编码器下差很多，只报一个数等于没报口径，所以一律按编码器分别给：
+
+| 文件 | `o200k_base` | `cl100k_base` |
+|---|---|---|
+| `SKILL.md`（常驻正文） | 4,124 | 5,279 |
+| `examples/report_spec.example.json`（模型写的规格） | 2,736 | 3,043 |
+| 等价的手写 HTML（`examples/report_example.html`） | 7,810 | 8,134 |
+
+「写规格 vs 手写 HTML」约 **1:2.9**（`o200k_base`），指模型输出量，不是渲染器的压缩率。CI 里的 `python scripts/da_measure.py --require-tiktoken` 守住这些数字：改了正文或示例却忘了同步 README，会直接失败。
 
 ## 验证与降级
 
-项目不携带示例数据、测试报告或运行缓存；`examples/` 仅保留不参与运行时的展示报告（可读的规格示例 + 它的渲染产物）。
+项目不携带私有业务数据、测试报告或运行缓存；`examples/` 只放不参与运行时的展示材料——可读的规格示例 + 它的渲染产物，以及 `examples/case_study/`（基于公开数据集 UCI Online Retail II 的脱敏聚合案例，含构建脚本、全部运行工件与逐字节可复现的报告）。
 
 没有时间列、没有基线、没有分子分母、实验 SRM 失败、因果没有可比对照或核心字段被数据质量事故污染时，skill 会停止对应分析或降级为结构画像、质量报告、关联性诊断和实验设计建议。

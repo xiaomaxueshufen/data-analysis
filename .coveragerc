@@ -1,0 +1,11 @@
+# 覆盖率配置：CLI 测试是用 subprocess 调用脚本的，必须打开 parallel
+# 并配合 conftest.py 里的 coverage.process_startup()，否则
+# da_verify / da_reconcile / da_profile 这些只能显示 0%。
+[run]
+parallel = true
+source = scripts
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:

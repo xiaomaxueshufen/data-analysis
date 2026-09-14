@@ -1,0 +1,17 @@
+{
+  "mode": "serial_fallback",
+  "native_tool_available": true,
+  "requested_real_subagents": false,
+  "spawn_attempts": [],
+  "fallback_reason": "serial_fallback_used_for_case_study_rebuild：本次是仓库维护时重建案例工件，原生 subagent 工具可用但未派发，四个角色由维护者按 references/harness.md 的串行隔离规则依次执行并各自落盘；需要真实 subagent 模式时，在有原生派发工具的会话里按 harness.md 重跑。",
+  "roles": [
+    "locator",
+    "mechanism",
+    "falsifier",
+    "reviewer"
+  ],
+  "reviewer_downgrades_accepted": [
+    "C005",
+    "C010"
+  ]
+}

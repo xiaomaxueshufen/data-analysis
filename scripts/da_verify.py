@@ -62,7 +62,15 @@ LABEL_CONTEXT_PATTERN = re.compile(
     r"(?:第|分组|组|阶段|步骤|序号|章节?|表|图|方案|选项)\s*(\d+(?:\.\d+)?)"
 )
 
-DATE_PATTERN = re.compile(r"\d{4}[-/年]\d{1,2}[-/月]\d{1,2}日?|\b\d{1,2}[-/]\d{1,2}\b")
+# 时间口语必须整体排除，否则「2011-11」「11 月」「2011 年」里的 2011 / 11
+# 会被当成结论数字，逼模型把「11 月」改写成「2011-11-01 至 2011-11-30」才能过闸。
+DATE_PATTERN = re.compile(
+    r"\d{4}\s*年(?:\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?)?"
+    r"|\d{4}[-/]\d{1,2}(?:[-/]\d{1,2})?"
+    r"|\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?"
+    r"|\d{1,2}\s*季度"
+    r"|\b\d{1,2}[-/]\d{1,2}\b"
+)
 # 捕获符号与千分位：-20.45% / −3.2 / 1,234.56 都要能读出来。
 NUMBER_PATTERN = re.compile(
     r"(?<![\w.])"
@@ -685,6 +693,14 @@ def main() -> int:
     args = parser.parse_args()
     if args.numeric_tolerance < 0:
         parser.error("--numeric-tolerance 不能为负数")
+    # --require-agent-manifest 单独使用时曾经是空操作（检查挂在 `if args.agents_dir`
+    # 下面），等于给了「独立角色门禁已强制」的错觉。这里改成硬失败。
+    if args.require_agent_manifest and not args.agents_dir:
+        print(json.dumps({
+            "status": "fail",
+            "error": "--require-agent-manifest 必须同时提供 --agents-dir <运行目录>/agents；没有 --agents-dir 时无法检查四角色工件与 execution.json",
+        }, ensure_ascii=False))
+        return 2
 
     evidence: dict = {"entries": {}, "legacy": [], "structured": False, "poisoned": [], "reconciliation_present": False}
     try:

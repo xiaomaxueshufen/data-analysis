@@ -13,13 +13,15 @@ compatibility: Codex；Python >= 3.10（pandas / numpy / openpyxl）
 
 1. **内容真实。** 只从用户数据推断，不把外部常识写成数据已证明的事实；数字必须可复算、可溯源；相关不等于因果；结论强度不能超过证据强度。
 2. **视觉每次不同。** 同一会话内，两次运行的报告必须在分析视角、图表语法、版式节奏、视觉主题中至少有三项明显不同；事实数字保持一致，内容骨架固定。变化维度见 `references/report-design.md`。
-3. **交付物恒为 HTML。** 每个 `outputs/<run>/` 必须有一份 `report.html`，不可被 Markdown、文字回复、终端输出或 JSON 替代。无论触发 Grill-Me、质量门禁阻断、`da_verify` 失败、SRM 报警、识别策略不足还是降级路径命中，**都必须产出 HTML**；降级报告同样以 HTML 交付，并在文件顶部显式标注 `degraded` 模式 + 已读数据、未读数据、降级原因。
+3. **交付物恒为 HTML（唯一例外是 Grill-Me 反问轮）。** 除反问轮外，每次正式分析都必须有一份 `outputs/<run>/report.html`，不可被 Markdown、文字回复、终端输出或 JSON 替代。质量门禁阻断、`da_verify` 失败、SRM 报警、识别策略不足或降级路径命中时，**仍然必须产出 HTML**；降级报告同样以 HTML 交付，并在文件顶部显式标注 `degraded` 模式 + 已读数据、未读数据、降级原因。
+
+**Grill-Me 反问轮是唯一的例外**：那一轮只输出反问与默认假设，**不生成 `report.html`**、不输出正式结论，停下等用户回答（见 `references/clarify.md`）。用户回答之后进入正式分析，从那一刻起「必须产出 HTML」重新生效。
 
 三者冲突时真实性优先。真实性与「产出 HTML」冲突（例如 `da_verify` fail）时仍必须产出 HTML：把 fail 事实写进 HTML 顶部的真实性检查条，不允许以「没过 verify 所以不交付」为由跳过。
 
 ## 两个必须执行的硬门禁
 
-1. **Grill-Me 反问门禁**：用户问题模糊时先反问再分析；反问那一轮不生成报告、不输出正式结论，停下等用户回答。触发条件与输出格式见 `references/clarify.md`。
+1. **Grill-Me 反问门禁**：用户问题模糊时先反问再分析；反问那一轮不生成 `report.html`、不输出正式结论，停下等用户回答（这是「交付物恒为 HTML」的唯一例外）。触发条件与输出格式见 `references/clarify.md`。
 2. **独立角色分析门禁**：问题涉及「为什么/原因/异动」，或结论会达到 L2 及以上时，必须完成 Locator、Mechanism、Falsifier、Reviewer 四个角色的独立分析并留下工件；缺任何一件，报告不得发布。执行方式（原生 subagent 还是串行隔离回退）、`agents/execution.json` 写法、以及伪 subagent 禁令见 `references/harness.md`。
 
 ## 真实性底线
@@ -140,7 +142,7 @@ python scripts/da_verify.py --claims <运行目录>/claims.json --evidence <运�
 python scripts/da_report.py --spec <运行目录>/report_spec.json --out <运行目录>/report.html
 ```
 
-规格 schema、图表类型、主题与风格可选值、多样性写法、设计纪律与反模式，全部在 `references/report-design.md`。渲染器是纯本地模板拼接，零外部请求，输出即自包含离线 HTML。脚本会校验证据引用、层级取值、图表类型、`marker` 越界、降级字段与占位词；**校验不过就不产出 HTML**，先修规格。
+规格 schema、图表类型、主题与风格可选值、多样性写法、设计纪律与反模式，全部在 `references/report-design.md`。渲染器是纯本地模板拼接，零外部请求，输出即自包含离线 HTML。脚本会校验证据引用、层级取值、图表类型、`marker` 越界、降级字段与占位词；**校验不过时脚本拒绝出文件，你按它列出的 problems 修规格后重跑，直到渲染成功**。规格校验失败不是「可以不交付」的理由：连修几轮仍过不去，就退到最小可用规格（`meta.title` + 至少一条 `findings`）再渲染，并把未解问题写进 HTML 顶部，不允许让 `outputs/<run>/` 缺 `report.html`。
 
 六段式骨架由脚本写死：核心发现 → 分析背景与目标 → 数据概况 → 深入分析 → 结论与建议 → 附录。在满足真实性的前提下，只变化视觉呈现、图表语法和深入分析的内部组织。报告必须包含「后续分析建议」，每条回答：还缺什么字段、补齐后能验证什么假设、需要什么样本/时间窗/实验设计、会影响什么决策。
 
@@ -152,7 +154,8 @@ python scripts/da_report.py --spec <运行目录>/report_spec.json --out <运行
 2. 六段式齐全，「后续分析建议」单独成节；
 3. 每条 L2+ 结论挂 `evidence_ids`，`limitations` 单独成节或随条挂载；
 4. HTML 断网双击可直接打开，无 CDN / 远程字体 / 外部请求；
-5. 若命中降级条件，顶部有可见 `degraded` 标志 + 已读 / 未读 / 降级原因。
+5. 若命中降级条件，顶部有可见 `degraded` 标志 + 已读 / 未读 / 降级原因；
+6. 若本轮是 Grill-Me 反问轮，则确认**没有**产出 `report.html`，并且没有输出正式结论（唯一允许缺 HTML 的情形）。
 
 未通过自检的运行不视为完成。
 

@@ -1,0 +1,127 @@
+{
+  "source_file": "retail_daily.csv",
+  "window": {
+    "start": "2009-12-01",
+    "end": "2011-12-09"
+  },
+  "detail_rows": 1183,
+  "grand_total": {
+    "net_revenue": 18928551.86,
+    "sales_amount": 19645047.39,
+    "returns_amount": 716495.53,
+    "returns_share_of_sales": 0.03647206930967856,
+    "orders": 46922,
+    "units": 11187818,
+    "missing_customer_id_rows": 227172
+  },
+  "missing_customer_id_share": 0.2224269655440488,
+  "net_revenue_2011_to_truncation": 9013281.129999999,
+  "current_month": {
+    "window": [
+      "2011-11-01",
+      "2011-11-30"
+    ],
+    "net_revenue": 1426587.54
+  },
+  "baseline_monthly_mean": {
+    "window": [
+      "2011-08-01",
+      "2011-10-31"
+    ],
+    "months": 3,
+    "net_revenue": 924820.1066666668
+  },
+  "nov_2011_vs_baseline_monthly_mean": 0.5425567953338037,
+  "nov_2010": 1394652.8599999996,
+  "nov_2011_vs_nov_2010": 0.022897941786030218,
+  "dec_2010": {
+    "net_revenue": 758169.64,
+    "days": 20
+  },
+  "region_share_total": {
+    "英国": 0.8542681373407506,
+    "非英国": 0.14573186265924942
+  },
+  "region_current": {
+    "英国": 1258370.8800000001,
+    "非英国": 168216.66
+  },
+  "region_baseline_monthly": {
+    "英国": 766233.1733333333,
+    "非英国": 158586.93333333332
+  },
+  "region_delta_vs_baseline": {
+    "英国": 492137.7066666668,
+    "非英国": 9629.726666666684
+  },
+  "top_months": [
+    {
+      "month": "2011-11",
+      "net_revenue": 1426587.54
+    },
+    {
+      "month": "2010-11",
+      "net_revenue": 1394652.8599999999
+    },
+    {
+      "month": "2010-10",
+      "net_revenue": 1069112.56
+    },
+    {
+      "month": "2011-10",
+      "net_revenue": 1061717.8900000001
+    },
+    {
+      "month": "2011-09",
+      "net_revenue": 1011360.84
+    },
+    {
+      "month": "2010-09",
+      "net_revenue": 841590.74
+    }
+  ],
+  "top_days": [
+    {
+      "date": "2011-11-14",
+      "net_revenue": 110623.68000000001
+    },
+    {
+      "date": "2011-09-20",
+      "net_revenue": 108277.04000000001
+    },
+    {
+      "date": "2010-11-15",
+      "net_revenue": 103134.36
+    },
+    {
+      "date": "2010-09-27",
+      "net_revenue": 97369.98
+    },
+    {
+      "date": "2010-11-04",
+      "net_revenue": 87534.02
+    },
+    {
+      "date": "2010-10-14",
+      "net_revenue": 85823.48000000001
+    }
+  ],
+  "truncation_day": {
+    "date": "2011-12-09",
+    "net_revenue": 29530.26,
+    "orders": 48,
+    "prev_day": 76493.97
+  },
+  "calendar_gaps": {
+    "missing_days": 135,
+    "calendar_days": 739,
+    "saturdays_missing": 104,
+    "first_missing": [
+      "2009-12-12",
+      "2009-12-19",
+      "2009-12-24",
+      "2009-12-25",
+      "2009-12-26"
+    ]
+  }
+}
