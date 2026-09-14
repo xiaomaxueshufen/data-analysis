@@ -9,8 +9,6 @@
 
 # Data Analysis Skill
 
-[![CI](https://github.com/xiaomaxueshufen/data-analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/xiaomaxueshufen/data-analysis/actions/workflows/ci.yml)
-
 这是一个多行业数据分析skill。用户上传 Excel 或 CSV 并提出问题后，模型自主识别决策意图、选择分析视角与方法组合、编写或调用计算、并撰写离线 HTML 报告。skill 只约束真实性边界，不固定视觉模板。确定性脚本仅作为可选的单点复核探针。
 
 
@@ -41,21 +39,11 @@
 4. 相关不等于因果；无法验证的解释写成高置信候选或待验证假设。
 5. 复杂问题优先由 Codex 原生 subagent 机制启动 Locator、Mechanism、Falsifier、Reviewer 四个独立 agent；前三个并行派发，Reviewer 最后执行。自定义 provider 或无原生工具时自动降级为串行隔离回退，绝不伪造 subagent。
 6. 报告必须说明补充什么数据后可以回答什么当前回答不了的问题。
-7. 报告多样性：内容骨架固定为原版六段式；同一会话内两次运行只变化视角、图表语法、版式节奏和深入分析的内部组织，事实数字保持一致。
-8. Grill-Me 硬门禁：用户问题模糊时必须先反问再分析，反问轮不生成报告，停下等待回答；用户说“直接分析”才允许带默认假设继续。
-9. 独立角色硬门禁：涉及“为什么/原因/异动”或 L2 及以上解释时，必须完成 Locator/Mechanism/Falsifier/Reviewer 四个角色的独立工件，缺一不可发布。
-10. 执行留痕：每次运行写 `agents/execution.json`，标明 `native_subagents` 或 `serial_fallback`；原生模式必须记录四个 agent id，回退模式必须记录原因。
-11. 报告渲染与内容分离：模型写规格 JSON，`da_report.py` 负责排版、图表和主题；禁止对数值几何做动画（条形生长 / 折线 draw-in / 数字 count-up 会在截图、打印、后台标签页里冻结成错误读数），只保留不改变几何的滚动显现并带超时兜底。
-12. 渐进式披露：`SKILL.md` 常驻正文保持精简（实测 `o200k_base` 4,124 / `cl100k_base` 5,279 token，口径见「自检 · 测量口径」），并给出「哪一步读哪个文件」的加载表；`references/` 按需读取，`methods/` 与 `industries/` 明确禁止整体加载。
-
-## 参考标准
-
-对账与数字溯源的设计参考了公开的建模规范，而不是任何同类 skill 的实现：
-
-- ICAEW《Financial Modelling Code》—— *Include a master check*（任一检查失败即报警）、*Build traceable references*（每个数字可追回来源）；
-- Twyman's Law —— 看起来有趣或异常的数字，通常是错的。
-
-`da_reconcile.py`、`da_verify.py` 与 `da_report.py` 均为本项目独立实现（与同类项目对照过，除 import 与标点外无相同代码行）。
+7. Grill-Me 硬门禁：用户问题模糊时必须先反问再分析，反问轮不生成报告，停下等待回答；用户说“直接分析”才允许带默认假设继续。
+8. 独立角色硬门禁：涉及“为什么/原因/异动”或 L2 及以上解释时，必须完成 Locator/Mechanism/Falsifier/Reviewer 四个角色的独立工件，缺一不可发布。
+9. 执行留痕：每次运行写 `agents/execution.json`，标明 `native_subagents` 或 `serial_fallback`；原生模式必须记录四个 agent id，回退模式必须记录原因。
+10. 报告渲染与内容分离：模型写规格 JSON，`da_report.py` 负责排版、图表和主题；禁止对数值几何做动画（条形生长 / 折线 draw-in / 数字 count-up 会在截图、打印、后台标签页里冻结成错误读数），只保留不改变几何的滚动显现并带超时兜底。
+11. 渐进式披露：`SKILL.md` 常驻正文保持精简（实测 `o200k_base` 4,124 / `cl100k_base` 5,279 token，口径见「自检 · 测量口径」），并给出「哪一步读哪个文件」的加载表；`references/` 按需读取，`methods/` 与 `industries/` 明确禁止整体加载。
 
 ## 工作流
 
@@ -189,24 +177,3 @@ python tests/test_report.py              # 每个文件也能单独执行，打�
 表内对账（`test_reconcile`）、报告渲染与规格校验（`test_report`：含示例报告与案例报告的逐字节可复现）、
 真实性门禁（`test_verify`：含 `--require-agent-manifest` 缺 `--agents-dir` 必须报错）、
 CLI 健壮性（`test_cli_robustness`：坏输入不抛栈、缺依赖给安装指引、17 个算子 × 8 种退化输入只允许「正常返回」或 `DataError`）。
-
-### 测量口径（token 与覆盖率）
-
-这两个数字都必须带口径，且都能用脚本复算：
-
-- **覆盖率**（当前合计 **81%**）：`COVERAGE_PROCESS_START=$PWD/.coveragerc python -m pytest tests/ -q --cov=scripts --cov-report=term`。口径是 `scripts/` 整仓（含全部 CLI、渲染器与算子），不是「核心模块」子集；`COVERAGE_PROCESS_START` 不能省——测试是用 subprocess 调用 CLI 的，不打开它就计不到 `da_verify` / `da_reconcile` / `da_report`（这几个会显示 0%）。
-- **token**：`pip install tiktoken && python scripts/da_measure.py`。同一份文本在不同编码器下差很多，只报一个数等于没报口径，所以一律按编码器分别给：
-
-| 文件 | `o200k_base` | `cl100k_base` |
-|---|---|---|
-| `SKILL.md`（常驻正文） | 4,124 | 5,279 |
-| `examples/report_spec.example.json`（模型写的规格） | 2,736 | 3,043 |
-| 等价的手写 HTML（`examples/report_example.html`） | 7,810 | 8,134 |
-
-「写规格 vs 手写 HTML」约 **1:2.9**（`o200k_base`），指模型输出量，不是渲染器的压缩率。CI 里的 `python scripts/da_measure.py --require-tiktoken` 守住这些数字：改了正文或示例却忘了同步 README，会直接失败。
-
-## 验证与降级
-
-项目不携带私有业务数据、测试报告或运行缓存；`examples/` 只放不参与运行时的展示材料——可读的规格示例 + 它的渲染产物，以及 `examples/case_study/`（基于公开数据集 UCI Online Retail II 的脱敏聚合案例，含构建脚本、全部运行工件与逐字节可复现的报告）。
-
-没有时间列、没有基线、没有分子分母、实验 SRM 失败、因果没有可比对照或核心字段被数据质量事故污染时，skill 会停止对应分析或降级为结构画像、质量报告、关联性诊断和实验设计建议。
