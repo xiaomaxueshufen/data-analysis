@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,9 @@ RESULTS: list[tuple[str, bool, str]] = []
 
 def check(name: str, condition: bool, detail: str = "") -> None:
     RESULTS.append((name, bool(condition), detail))
+    if not condition:
+        # pytest 只把异常当失败；不抛的话断言失败会被静默吞掉
+        raise AssertionError(f"{name}" + (f" — {detail}" if detail else ""))
 
 
 def run_verify(claims: object, evidence: object | None = None, extra: list[str] | None = None) -> dict:
@@ -190,7 +194,7 @@ def test_causal_identification() -> None:
             "limitations": ["实验仅覆盖安卓端"],
             "identification_strategy": "randomized",
         }],
-        {"delta_pp": 0.116},
+        {"delta_pp": -0.116},
     )
     check("漏洞3 合法识别策略通过",
           "causal_language_without_identification" not in codes_of(valid),
@@ -296,10 +300,276 @@ def test_existing_gates_intact() -> None:
             "evidence_ids": ["E001"],
             "limitations": ["单日观测"],
         }],
-        {"success_rate": 0.826},
+        {"evidence": [{"id": "E001", "kind": "computation", "value": 0.826, "verified": True}]},
     )
     check("既有门禁 合规结论通过", clean["status"] == "pass", f"status={clean['status']}")
     check("既有门禁 报告证据数量", clean.get("evidence_summary", {}).get("numbers_collected", 0) >= 1)
+
+
+
+
+# --------------------------------------------------- 漏洞五：数字张冠李戴
+
+
+def test_scoped_evidence_binding() -> None:
+    """结论只能用它自己 evidence_ids 指向的那条证据里的数字。
+
+    0.6.0 把所有证据数字并成一个「数字袋」，于是「渠道A 贡献 900」可以拿
+    「渠道B = 900」来溯源并判 pass。
+    """
+    evidence = {
+        "evidence": [
+            {"id": "E_A", "kind": "computation", "metric": "channel_A", "value": 632, "verified": True},
+            {"id": "E_B", "kind": "computation", "metric": "channel_B", "value": 900, "verified": True},
+        ]
+    }
+    borrowed = run_verify(
+        [{
+            "claim_id": "C001",
+            "statement": "渠道A 贡献了 900 单的缺口",
+            "level": "L1",
+            "evidence_ids": ["E_A"],
+            "limitations": ["口径单一"],
+        }],
+        evidence,
+    )
+    check("漏洞5 借用他人证据的数字被拦截",
+          "untraceable_number" in codes_of(borrowed) and borrowed["status"] == "fail",
+          f"status={borrowed['status']}")
+
+    own = run_verify(
+        [{
+            "claim_id": "C001",
+            "statement": "渠道A 贡献了 632 单的缺口",
+            "level": "L1",
+            "evidence_ids": ["E_A"],
+            "limitations": ["口径单一"],
+        }],
+        evidence,
+    )
+    check("漏洞5 绑定到自己的证据可通过",
+          "untraceable_number" not in codes_of(own) and own["status"] == "pass",
+          f"status={own['status']}")
+
+    unresolved = run_verify(
+        [{
+            "claim_id": "C001",
+            "statement": "渠道A 贡献了 632 单的缺口",
+            "level": "L1",
+            "evidence_ids": ["E_NOT_EXIST"],
+            "limitations": ["口径单一"],
+        }],
+        evidence,
+    )
+    strict_ids = run_verify(
+        [{
+            "claim_id": "C001",
+            "statement": "渠道A 贡献了 632 单的缺口",
+            "level": "L1",
+            "evidence_ids": ["E_NOT_EXIST"],
+            "limitations": ["口径单一"],
+        }],
+        evidence,
+        extra=["--require-evidence-ids"],
+    )
+    check("漏洞5 引用不存在的条目默认只提示",
+          "unresolved_evidence_ids" in codes_of(unresolved) and unresolved["status"] == "pass",
+          f"status={unresolved['status']}")
+    check("漏洞5 --require-evidence-ids 下直接失败",
+          strict_ids["status"] == "fail", f"status={strict_ids['status']}")
+
+    legacy = run_verify(
+        [{
+            "claim_id": "C001",
+            "statement": "转化率为 0.5",
+            "level": "L0",
+            "evidence_ids": ["E001"],
+            "limitations": ["单日观测"],
+        }],
+        {"rate": 0.5},
+    )
+    check("漏洞5 自由结构证据标注弱模式",
+          "unscoped_evidence" in codes_of(legacy), f"status={legacy['status']}")
+
+
+# --------------------------------------------------- 漏洞六：方向写反 / 符号丢失
+
+
+def test_direction_and_sign() -> None:
+    """下降 / 上升必须与证据符号一致，显式负号必须能读出来。"""
+    evidence = {"evidence": [{"id": "E001", "kind": "computation", "delta": -0.2045, "verified": True}]}
+
+    def run(statement: str) -> dict:
+        return run_verify(
+            [{
+                "claim_id": "C001",
+                "statement": statement,
+                "level": "L1",
+                "evidence_ids": ["E001"],
+                "limitations": ["单断点"],
+            }],
+            evidence,
+        )
+
+    down = run("3月1日起订单量下降了 20.45%")
+    up = run("3月1日起订单量上升了 20.45%")
+    explicit = run("3月1日起订单量变化 -20.45%")
+    check("漏洞6 方向一致（下降 vs 负证据）可溯源",
+          "untraceable_number" not in codes_of(down), f"codes={sorted(codes_of(down))}")
+    check("漏洞6 方向写反（上升 vs 负证据）被拦截",
+          "untraceable_number" in codes_of(up) and up["status"] == "fail",
+          f"status={up['status']}")
+    check("漏洞6 显式负号可正确匹配",
+          "untraceable_number" not in codes_of(explicit), f"codes={sorted(codes_of(explicit))}")
+
+    signed_evidence = {"evidence": [{"id": "E001", "kind": "computation", "delta": -200, "verified": True}]}
+    absolute = run_verify(
+        [{
+            "claim_id": "C001",
+            "statement": "该渠道减少了 200 单",
+            "level": "L1",
+            "evidence_ids": ["E001"],
+            "limitations": ["单日观测"],
+        }],
+        signed_evidence,
+    )
+    check("漏洞6 绝对量方向匹配",
+          "untraceable_number" not in codes_of(absolute), f"codes={sorted(codes_of(absolute))}")
+
+    ambiguous = run("订单量先上升后下降，净变化 20.45%")
+    check("漏洞6 上下行同时出现时不误报",
+          "untraceable_number" not in codes_of(ambiguous), f"codes={sorted(codes_of(ambiguous))}")
+
+
+def test_identification_strategy_required() -> None:
+    """0.6.0 的条件写成 `if identification and ...`，漏填时整条检查被跳过。"""
+    missing = run_verify(
+        [{
+            "claim_id": "C001",
+            "statement": "推荐算法改版导致订单量下降",
+            "level": "L2",
+            "evidence_ids": ["E001", "E002"],
+            "limitations": ["无对照"],
+            "decomposition_closed": True,
+        }],
+        {"evidence": [
+            {"id": "E001", "kind": "computation", "value": 900, "verified": True},
+            {"id": "E002", "kind": "computation", "value": 800, "verified": True},
+        ]},
+    )
+    check("漏洞7 漏填 identification_strategy 被拦截",
+          "causal_language_without_identification" in codes_of(missing) and missing["status"] == "fail",
+          f"status={missing['status']}")
+
+
+def test_label_numbers_not_required() -> None:
+    """「分组 3」这类序号不是数据，不应该逼模型改写措辞来绕开溯源。"""
+    report = run_verify(
+        [{
+            "claim_id": "C001",
+            "statement": "分组 3 的转化率为 0.5",
+            "level": "L1",
+            "evidence_ids": ["E001"],
+            "limitations": ["单组观测"],
+        }],
+        {"evidence": [{"id": "E001", "kind": "computation", "rate": 0.5, "verified": True}]},
+    )
+    check("序号数字不参与溯源",
+          "untraceable_number" not in codes_of(report), f"codes={sorted(codes_of(report))}")
+
+
+def test_reconciliation_integration() -> None:
+    """对账联动：引用表内已被证伪的数字必须被拦下。"""
+    import tempfile
+
+    reconciliation = {
+        "op": "reconcile",
+        "reconciliations": [
+            {
+                "id": "R003", "kind": "reconciliation", "scope": "全表明细", "column": "金额",
+                "stated": 99000, "computed": 7000, "diff": -92000, "status": "inconsistent", "verified": False,
+            },
+            {
+                "id": "R001", "kind": "reconciliation", "scope": "地区==华东", "column": "金额",
+                "stated": 3000, "computed": 3000, "status": "consistent", "verified": True,
+            },
+        ],
+        "master_check": {"status": "fail", "checked": 2, "failed": 1, "failed_ids": ["R003"]},
+    }
+    with tempfile.TemporaryDirectory() as directory:
+        path = pathlib.Path(directory) / "reconcile.json"
+        path.write_text(json.dumps(reconciliation, ensure_ascii=False), encoding="utf-8")
+
+        bad = run_verify(
+            [{
+                "claim_id": "C001",
+                "statement": "全表金额合计为 99,000",
+                "level": "L1",
+                "evidence_ids": ["R003"],
+                "limitations": ["含小计行"],
+            }],
+            extra=["--reconciliation", str(path)],
+        )
+        check("对账 引用表内被证伪的数字被拦下",
+              "reconciliation_mismatch" in codes_of(bad) and bad["status"] == "fail",
+              f"status={bad['status']}")
+
+        good = run_verify(
+            [{
+                "claim_id": "C001",
+                "statement": "华东金额小计为 3,000",
+                "level": "L1",
+                "evidence_ids": ["R001"],
+                "limitations": ["含小计行"],
+            }],
+            extra=["--reconciliation", str(path)],
+        )
+        check("对账 引用通过对账的条目可通过",
+              "reconciliation_mismatch" not in codes_of(good) and good["status"] == "pass",
+              f"status={good['status']}")
+
+        disclosed = run_verify(
+            [{
+                "claim_id": "C001",
+                "statement": "全表金额合计写 99,000，但按明细重算只有 7,000，差额 92,000",
+                "level": "L1",
+                "evidence_ids": ["R003"],
+                "limitations": ["含小计行"],
+            }],
+            extra=["--reconciliation", str(path)],
+        )
+        check("对账 同时披露差额的结论不算掩盖",
+              "reconciliation_mismatch" not in codes_of(disclosed)
+              and "untraceable_number" not in codes_of(disclosed),
+              f"codes={sorted(codes_of(disclosed))}")
+
+        unbound = run_verify(
+            [{
+                "claim_id": "C001",
+                "statement": "全表金额合计为 99,000",
+                "level": "L1",
+                "evidence_ids": ["R001"],
+                "limitations": ["含小计行"],
+            }],
+            extra=["--reconciliation", str(path)],
+        )
+        check("对账 未绑定却引用被证伪数字给出警告",
+              "reconciliation_conflict_unbound" in codes_of(unbound), f"codes={sorted(codes_of(unbound))}")
+
+
+def test_lenient_numbers_switch() -> None:
+    fabricated = [{
+        "claim_id": "C001",
+        "statement": "支付成功率为 95.0%",
+        "level": "L0",
+        "evidence_ids": ["E001"],
+        "limitations": ["单日观测"],
+    }]
+    evidence = {"evidence": [{"id": "E001", "kind": "computation", "value": 0.826, "verified": True}]}
+    default = run_verify(fabricated, evidence)
+    lenient = run_verify(fabricated, evidence, extra=["--lenient-numbers"])
+    check("编造数字默认直接 fail", default["status"] == "fail", f"status={default['status']}")
+    check("--lenient-numbers 退回警告", lenient["status"] == "warn", f"status={lenient['status']}")
 
 
 def main() -> int:
@@ -309,11 +579,21 @@ def main() -> int:
         test_causal_identification,
         test_p_hacking,
         test_existing_gates_intact,
+        test_scoped_evidence_binding,
+        test_direction_and_sign,
+        test_identification_strategy_required,
+        test_label_numbers_not_required,
+        test_reconciliation_integration,
+        test_lenient_numbers_switch,
     ):
+        before = len(RESULTS)
         try:
             suite()
+        except AssertionError:
+            if len(RESULTS) == before:
+                RESULTS.append((f"{suite.__name__} 断言失败", False, "未记录的 AssertionError"))
         except Exception as error:  # noqa: BLE001
-            check(f"{suite.__name__} 执行异常", False, f"{type(error).__name__}: {error}")
+            RESULTS.append((f"{suite.__name__} 执行异常", False, f"{type(error).__name__}: {error}"))
 
     failed = [item for item in RESULTS if not item[1]]
     for name, ok, detail in RESULTS:

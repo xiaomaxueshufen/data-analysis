@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
-import pandas as pd
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from da_envcheck import ensure_dependencies  # noqa: E402
 
-from da_common import (
+ensure_dependencies()
+
+import pandas as pd  # noqa: E402
+
+from da_common import (  # noqa: E402
+    cli_guard,
     choose_date_field,
     choose_main_table,
     file_sha256,
@@ -68,6 +75,9 @@ def profile_data(path: str) -> dict:
             "duplicate_rows": int(frame.duplicated().sum()),
             "source_ref": source_ref(name, table["header_row"]),
         }
+        if table.get("parse_notices"):
+            # 参差行会让 pandas 丢掉多余的格子；说出来，别让人拿到少列的数据还不自知
+            profile["parse_notices"] = table["parse_notices"]
         if date_field:
             dates = parse_date_series(frame[date_field]).dropna().dt.normalize()
             profile["date_range"] = {
@@ -98,14 +108,15 @@ def profile_data(path: str) -> dict:
     }
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description="Excel/CSV 数据结构画像")
     parser.add_argument("--data", required=True)
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
     write_json(args.out, profile_data(args.data))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(cli_guard(main))
 

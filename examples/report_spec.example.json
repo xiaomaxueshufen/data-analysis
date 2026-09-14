@@ -1,0 +1,379 @@
+{
+  "meta": {
+    "title": "支付成功率下滑定位：3 月 1 日口径切换是主因",
+    "subtitle": "先定位变化、再排除解释；本报告只输出高置信候选与待验证假设，不输出根因。",
+    "decision": "示例 · 渠道与版本复盘",
+    "window": "2026-01-01 至 2026-03-31",
+    "source": "sample.csv（示例数据，非真实业务数据）",
+    "quality": {
+      "flag": "review",
+      "note": "2 行会话字段缺失"
+    }
+  },
+  "diversity": {
+    "theme": "apple-graphite",
+    "style": "apple",
+    "motion": "restrained",
+    "density": 4
+  },
+  "kpis": [
+    {
+      "label": "订单量（3 月）",
+      "value": 789.2,
+      "unit": "",
+      "delta": "-20.4% 环比",
+      "direction": "down",
+      "raw": 789.2
+    },
+    {
+      "label": "支付成功率",
+      "value": 92.0,
+      "unit": "percent",
+      "delta": "持平",
+      "direction": "flat"
+    },
+    {
+      "label": "日均 GMV",
+      "value": 94680,
+      "unit": "",
+      "delta": "-20.1%",
+      "direction": "down"
+    },
+    {
+      "label": "有效天数",
+      "value": 90,
+      "unit": "",
+      "delta": "无缺口",
+      "direction": "flat"
+    }
+  ],
+  "findings": [
+    {
+      "title": "订单量在 3 月 1 日发生水平位移，幅度 -20.4%",
+      "body": "59 天均值 992.1，之后 31 天均值 789.2，标准误 9.11，位移区间 [-220.8, -185.0]。断点位置由数据挑选，实际显著性弱于该区间。",
+      "level": "L1",
+      "tone": "negative",
+      "evidence_ids": [
+        "E004"
+      ],
+      "limitations": [
+        "单断点搜索",
+        "未做季节调整"
+      ]
+    },
+    {
+      "title": "位移与周内节律无关",
+      "body": "未检出稳定的星期效应，日间波动在断点前后没有系统性变化，因此不是周期性因素。",
+      "level": "L1",
+      "tone": "neutral",
+      "evidence_ids": [
+        "E005"
+      ],
+      "limitations": [
+        "仅 90 天"
+      ]
+    },
+    {
+      "title": "渠道结构同期变化 3.2 个百分点，贡献了约 -0.6% 缺口",
+      "body": "结构变化只能解释缺口的很小一部分，剩余缺口需要有同期事件或口径变更来对齐。",
+      "level": "L2",
+      "tone": "caution",
+      "evidence_ids": [
+        "E006",
+        "E007"
+      ],
+      "limitations": [
+        "无渠道投放日志"
+      ]
+    },
+    {
+      "title": "发版时点与断点同日，但缺少对照，不能写成根因",
+      "body": "3 月 1 日同时命中一次版本发布，缺少可比对照，只能作为高置信候选，需补对照窗口后验证。",
+      "level": "L2",
+      "tone": "caution",
+      "evidence_ids": [
+        "E008",
+        "E009"
+      ],
+      "limitations": [
+        "无随机化",
+        "无对照版本"
+      ]
+    }
+  ],
+  "background": {
+    "narrative": "本次复盘面向渠道与版本的下一步投入决策：需要区分「真实需求下滑」与「口径或埋点变化」。主指标为订单量与支付成功率，护栏为 GMV 与有效天数。由于缺少随机化与版本对照，本报告不输出因果结论。"
+  },
+  "data_overview": {
+    "narrative": "数据为 90 天逐日聚合表，覆盖 3 个渠道；日期连续无缺口，无重复键。",
+    "table": {
+      "title": "字段与质量",
+      "columns": [
+        {
+          "key": "field",
+          "label": "字段"
+        },
+        {
+          "key": "role",
+          "label": "角色"
+        },
+        {
+          "key": "missing",
+          "label": "缺失"
+        },
+        {
+          "key": "note",
+          "label": "备注"
+        }
+      ],
+      "rows": [
+        {
+          "field": "date",
+          "role": "时间轴",
+          "missing": 0,
+          "note": "2026-01-01 起连续 90 天"
+        },
+        {
+          "field": "orders",
+          "role": "主指标",
+          "missing": 0,
+          "note": "逐日计数"
+        },
+        {
+          "field": "pay_success",
+          "role": "护栏",
+          "missing": 0,
+          "note": "与 orders 同粒度"
+        },
+        {
+          "field": "channel",
+          "role": "维度",
+          "missing": 0,
+          "note": "A/B/C 三类"
+        },
+        {
+          "field": "gmv",
+          "role": "护栏",
+          "missing": 0,
+          "note": "逐日金额"
+        }
+      ],
+      "numeric_columns": [
+        "missing"
+      ]
+    },
+    "notes": [
+      "质量门禁：无重复键、无负值；渠道字段基数稳定。"
+    ]
+  },
+  "analysis": [
+    {
+      "heading": "机制一：水平位移与趋势断点",
+      "charts": [
+        {
+          "type": "line",
+          "title": "逐日订单量与同星期基线",
+          "caption": "订单量在同星期基线上下波动，3 月 1 日后整体下移",
+          "baseline": 992.1,
+          "marker": {
+            "index": 4,
+            "label": "3/1 位移"
+          },
+          "data": [
+            {
+              "label": "1/1",
+              "value": 1000
+            },
+            {
+              "label": "1/15",
+              "value": 1002
+            },
+            {
+              "label": "2/1",
+              "value": 985
+            },
+            {
+              "label": "2/15",
+              "value": 990
+            },
+            {
+              "label": "3/1",
+              "value": 755
+            },
+            {
+              "label": "3/15",
+              "value": 790
+            },
+            {
+              "label": "3/31",
+              "value": 781
+            }
+          ],
+          "note": "断点由 changepoint_scan 选出，位置本身是数据挑选的结果。",
+          "source": "evidence E004"
+        }
+      ]
+    },
+    {
+      "heading": "机制二：渠道与漏斗结构",
+      "charts": [
+        {
+          "type": "bars",
+          "title": "各渠道对缺口的贡献（相对基线）",
+          "data": [
+            {
+              "label": "渠道 A",
+              "value": -141.2,
+              "display": "-141.2",
+              "tone": "negative"
+            },
+            {
+              "label": "渠道 B",
+              "value": -38.6,
+              "display": "-38.6"
+            },
+            {
+              "label": "渠道 C",
+              "value": -23.1,
+              "display": "-23.1"
+            }
+          ],
+          "note": "按组对账，缺口合计 -202.9，与总量位移一致。",
+          "source": "evidence E006"
+        },
+        {
+          "type": "funnel",
+          "title": "支付漏斗（3 月）",
+          "data": [
+            {
+              "label": "下单",
+              "value": 78914
+            },
+            {
+              "label": "发起支付",
+              "value": 74200
+            },
+            {
+              "label": "支付成功",
+              "value": 68264
+            }
+          ],
+          "source": "evidence E010"
+        }
+      ]
+    },
+    {
+      "heading": "机制三：分群矩阵",
+      "charts": [
+        {
+          "type": "matrix",
+          "title": "渠道 × 月份 订单量",
+          "rows": [
+            "渠道 A",
+            "渠道 B",
+            "渠道 C"
+          ],
+          "columns": [
+            "1 月",
+            "2 月",
+            "3 月"
+          ],
+          "cells": {
+            "渠道 A|1 月": 502,
+            "渠道 A|2 月": 498,
+            "渠道 A|3 月": 361,
+            "渠道 B|1 月": 301,
+            "渠道 B|2 月": 296,
+            "渠道 B|3 月": 257,
+            "渠道 C|1 月": 199,
+            "渠道 C|2 月": 206,
+            "渠道 C|3 月": 171
+          },
+          "source": "evidence E006"
+        }
+      ]
+    }
+  ],
+  "conclusions": [
+    {
+      "text": "订单量位移确定发生在 3 月 1 日，幅度 -20.4%，且不是周内节律造成的。",
+      "evidence_ids": [
+        "E004",
+        "E005"
+      ]
+    },
+    {
+      "text": "结构变化只解释缺口的约 0.6%，不能单独解释位移。",
+      "evidence_ids": [
+        "E006",
+        "E007"
+      ]
+    },
+    {
+      "text": "发版同日是当前最强的高置信候选，但缺对照，尚不能写成根因。",
+      "evidence_ids": [
+        "E008",
+        "E009"
+      ]
+    }
+  ],
+  "next_steps": [
+    {
+      "question": "位移是否由口径或埋点变更造成？",
+      "data_needed": "埋点版本表 + 事件定义变更记录（覆盖 2/25–3/5）"
+    },
+    {
+      "question": "发版是否真的造成了下降？",
+      "data_needed": "未发版渠道的同期对照，或灰度分流的处理/对照数据"
+    }
+  ],
+  "appendix": {
+    "tables": [
+      {
+        "title": "证据索引",
+        "columns": [
+          {
+            "key": "id",
+            "label": "证据"
+          },
+          {
+            "key": "op",
+            "label": "来源算子"
+          },
+          {
+            "key": "key_number",
+            "label": "关键数值"
+          }
+        ],
+        "rows": [
+          {
+            "id": "E004",
+            "op": "changepoint_scan",
+            "key_number": "-0.2045"
+          },
+          {
+            "id": "E005",
+            "op": "anomaly_scan",
+            "key_number": "周内效应不显著"
+          },
+          {
+            "id": "E006",
+            "op": "contribution",
+            "key_number": "-202.9"
+          },
+          {
+            "id": "E010",
+            "op": "funnel_rates",
+            "key_number": "92.0%"
+          }
+        ],
+        "numeric_columns": []
+      }
+    ],
+    "notes": [
+      "本报告所有数字来自 outputs/run1 下的证据 JSON，可逐条复算。",
+      "限制：无随机化、无对照版本、无投放日志。",
+      "本文件是示例：数据为合成数据，仅用于演示 report_spec 的结构与 da_report 的渲染结果。"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "data-analysis",
-  "version": "0.6.0",
-  "description": "面向 Excel/CSV 的模型主导数据分析 skill：模糊问题强制 Grill-Me 反问，正式结论强制 Locator/Mechanism/Falsifier/Reviewer 独立角色工件；新增归因、同期群、生存/流失、路径、RFM、价格弹性、CUSUM 断点检测、SRM/CUPED、功效/MDE、多重比较共 11 个算子，以及增长 / 互金 / 游戏 / 双边 / 本地生活 五大行业模板；da_verify 强化量纲严格的数字溯源、识别策略门禁、探索性结论警告。报告内容骨架固定为原版六段式，模型自主选择视角与视觉呈现，真实性由 da_verify 门禁约束。",
+  "version": "0.8.0",
+  "description": "面向 Excel/CSV 的模型主导数据分析 skill：模糊问题强制 Grill-Me 反问，正式结论强制 Locator/Mechanism/Falsifier/Reviewer 独立角色工件。0.8.0 新增 da_report 报告渲染器——模型只写紧凑的规格 JSON，脚本渲染苹果风自包含离线 HTML（五套主题、默认 apple-graphite（墨色 UI 骨架 + 数据统一 Apple 蓝的分离配色）、四种纯 SVG 图表、六段式骨架由代码写死，并机器校验证据引用/层级/图表类型/占位词），单次报告输出成本从约 10,700 token 降到 2,000–3,000；同时把 SKILL.md 常驻正文从 7,600 压到 4,900 token，删除三份重复的报告设计文档并合并为 references/report-design.md，新增「哪一步读哪个文件」的渐进式披露加载表。移除会冻结成错误读数的数值动画（条形生长、折线 draw-in、数字 count-up）；图表文字按 WCAG 自动挑色，对比度不足时把数值移到条外，并修复 fmt_number 把 880.0 渲染成「880.0」的不一致。报告内容骨架固定为原版六段式，真实性由 da_reconcile + da_verify 门禁约束。",
   "author": {
     "name": "Codex Data Analysis"
   },
@@ -26,6 +26,9 @@
     "cuped",
     "power-mde",
     "multiple-testing",
+    "reconciliation",
+    "cross-foot-check",
+    "对账",
     "business-analysis",
     "retail-ecommerce",
     "internet-saas",

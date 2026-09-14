@@ -194,7 +194,7 @@ agent 派发能力，直接判定为不可用，不要通过更强烈的提示�
 正式报告发布前运行：
 
 ```bash
-python scripts/da_verify.py --claims <run>/claims.json --agents-dir <run>/agents --require-agent-manifest [--evidence <run>/evidence.json]
+python scripts/da_verify.py --claims <run>/claims.json --evidence <run>/evidence.json --reconciliation <run>/reconcile.json --agents-dir <run>/agents --require-agent-manifest
 ```
 
 `--agents-dir` 会检查四个角色工件是否齐全且格式有效；`--require-agent-manifest`

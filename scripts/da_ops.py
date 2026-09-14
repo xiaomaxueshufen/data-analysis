@@ -5,15 +5,29 @@ import json
 import math
 import sys
 from pathlib import Path
-from typing import Any
-
-import numpy as np
-import pandas as pd
-from statistics import NormalDist
 
 # 允许 `python scripts/da_ops.py ...` 直接运行（不再依赖 cwd）
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from da_common import choose_date_field, choose_main_table, load_tables, parse_date_series, to_numeric, write_json
+
+from da_envcheck import ensure_dependencies  # noqa: E402
+
+# 依赖自检必须在 pandas 之前：缺依赖时给安装指引，而不是 traceback
+ensure_dependencies()
+
+import pandas as pd  # noqa: E402
+from statistics import NormalDist  # noqa: E402
+
+from da_common import (  # noqa: E402
+    DataError,
+    choose_date_field,
+    choose_main_table,
+    cli_guard,
+    load_tables,
+    parse_date_series,
+    quiet_numeric,
+    to_numeric,
+    write_json,
+)
 from da_growth import GROWTH_OPERATORS
 from da_stats import DATA_FREE_OPERATORS as STATS_DATA_FREE, STAT_OPERATORS
 
@@ -233,7 +247,42 @@ for _name, _func in GROWTH_OPERATORS.items():
 DATA_FREE_OPERATORS = set(STATS_DATA_FREE)
 
 
-def main() -> None:
+def execute(operator: str, data_path: str | None, config: dict) -> dict:
+    """跑一个算子并返回结果；输入问题统一抛 DataError。
+
+    main() 和测试都走这里，保证「CLI 里不崩」＝「这个函数不崩」。
+    """
+    if operator not in OPERATORS:
+        raise DataError(f"未知算子：{operator}")
+    if not isinstance(config, dict):
+        raise DataError("算子配置必须是 JSON 对象")
+    with quiet_numeric():
+        return _execute(operator, data_path, config)
+
+
+def _execute(operator: str, data_path: str | None, config: dict) -> dict:
+    try:
+        if operator in DATA_FREE_OPERATORS:
+            result = OPERATORS[operator](None, config)
+        else:
+            if not data_path:
+                raise DataError(f"算子 {operator} 需要数据文件")
+            frame, sheet = load_frame(data_path, config)
+            result = OPERATORS[operator](frame, config)
+            if not isinstance(result, dict):
+                raise DataError(f"算子 {operator} 返回了非对象结果")
+            result["sheet"] = sheet
+    except DataError:
+        raise
+    except (KeyError, ValueError, TypeError) as error:
+        # 算子对「配置缺字段 / 样本不足 / 分母为 0」的报错属于输入问题，
+        # 统一转成结构化失败，而不是把内部栈甩给用户。
+        raise DataError(f"算子 {operator} 无法执行：{type(error).__name__}: {error}") from error
+    result["config"] = config
+    return result
+
+
+def main() -> int:
     parser = argparse.ArgumentParser(description="通用数据分析算子入口")
     parser.add_argument("operator", choices=sorted(OPERATORS))
     parser.add_argument("--data", help="数据文件路径；纯设计算子（power_mde / multiple_testing）可省略")
@@ -241,17 +290,9 @@ def main() -> None:
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
     config = json.loads(Path(args.config).read_text(encoding="utf-8"))
-    if args.operator in DATA_FREE_OPERATORS:
-        result = OPERATORS[args.operator](None, config)
-    else:
-        if not args.data:
-            parser.error(f"算子 {args.operator} 需要 --data")
-        frame, sheet = load_frame(args.data, config)
-        result = OPERATORS[args.operator](frame, config)
-        result["sheet"] = sheet
-    result["config"] = config
-    write_json(args.out, result)
+    write_json(args.out, execute(args.operator, args.data, config))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(cli_guard(main))

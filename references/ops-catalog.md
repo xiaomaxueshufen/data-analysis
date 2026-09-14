@@ -8,13 +8,15 @@
 python scripts/da_profile.py --data <文件路径> --out <profile.json>
 python scripts/da_quality.py --profile <profile.json> --data <文件路径> --contract <semantic_contract.json> --out <quality.json>
 python scripts/da_ops.py <operator> --data <文件路径> --config <配置.json> --out <证据.json>
-python scripts/da_verify.py --claims <claims.json> --agents-dir <agents> --require-agent-manifest [--evidence <evidence.json>]
+python scripts/da_reconcile.py --data <文件路径> --out <对账.json>
+python scripts/da_verify.py --claims <claims.json> --evidence <证据.json> --reconciliation <对账.json> --agents-dir <agents> --require-agent-manifest
 ```
 
 | 脚本/算子 | 用途 | 关键输入 |
 |---|---|---|
 | `da_profile.py` | 识别 sheet、表头、字段、类型、缺失和时间覆盖 | 文件路径 |
 | `da_quality.py` | 检查合同字段缺失、日期重复、空值、极端值和异常延迟 | profile、原始文件、语义合同 |
+| `da_reconcile.py` | 用表内「合计 / 小计」行当校验和，对明细做加总交叉验证，产出带 `id` 的对账条目 | 文件路径、容差 |
 | `anomaly_scan` | 计算同星期/滚动基线、偏离和 robust z | 日期、指标、`baseline_window_days` |
 | `funnel_rates` | 由阶段计数重算阶段率、损失量 | 阶段字段顺序 |
 | `ratio_decomp` | 将比率变化拆为组内与结构变化 | 分子、分母、维度、基线 |
@@ -47,20 +49,46 @@ python scripts/da_verify.py --claims <claims.json> --agents-dir <agents> --requi
 
 分母为 0、样本不足、日期不齐、基线不可用、分组样本 < `min_segment_size`、协变量缺失或窗口未成熟时返回结构化错误，不返回伪造数字。
 
+## 表内对账（写数字之前推荐先跑）
+
+中文表格几乎都自带校验和：末尾的「合计」、分组后的「小计」。`da_reconcile.py`
+把汇总行捞出来，推断每一行的管辖范围，再用明细行重算一遍：
+
+```bash
+python scripts/da_reconcile.py --data <文件路径> [--sheet 名称] --out <对账.json>
+```
+
+```
+✓ R001 地区==华东 / 金额: 表内 21,000.75 vs 明细 21,000.75  [consistent]
+✗ R003 全表明细 / 金额: 表内 99,999.99 vs 明细 30,500.75  [inconsistent]
+MASTER CHECK：不通过：1 项对不上。在解决之前，不要把这些数字写进交付物。
+```
+
+- 退出码：`0` = 全部对上或表中没有可对账的汇总行；`1` = 有对不上的地方，可直接当流水线闸门；
+- 比率行（占比 / 同比 / 率）与比率列不参与加总，列入 `skipped`，不会把 `0.6` 当金额加进合计；
+- 支持千分位、会计式括号负数、货币符号、全角数字；容差默认 `绝对 0.5 / 相对 0.5%`，覆盖四舍五入；
+- 输出条目自带 `id` / `status` / `verified`，直接作为 `da_verify.py --reconciliation` 的输入。
+
 ## 发布前真实性检查（推荐必跑）
 
 ```bash
-python scripts/da_verify.py --claims <claims.json> --agents-dir <agents> --require-agent-manifest [--evidence <evidence.json>] [--strict]
+python scripts/da_verify.py --claims <claims.json> --evidence <证据.json> --reconciliation <对账.json> --agents-dir <agents> --require-agent-manifest [--strict]
 ```
 
-`da_verify.py` 检查每条结论是否有 `evidence_ids`、因果措辞是否越过 L2 门槛、statement 数字能否在证据中找到相近值，以及独立角色工件和执行 manifest 是否有效。它不生成报告、不做分析、不规定视觉格式。
+`da_verify.py` 检查每条结论是否有 `evidence_ids`、因果措辞是否越过 L2 门槛、statement 数字能否在**它自己引用的证据条目**里按量纲与方向溯源、是否引用了表内已被证伪的数字，以及独立角色工件和执行 manifest 是否有效。它不生成报告、不做分析、不规定视觉格式。
 
-### `da_verify.py` 新增门禁
+### `da_verify.py` 门禁（0.7.0）
 
-- `--require-evidence`（默认开启）：未传 `--evidence` 时数字溯源直接 fail，避免整段跳过；
-- `--no-require-evidence`：显式关闭溯源（不推荐，会留下 `no_evidence_provided` 之外的盲区）；
+- **按条目绑定**：证据文件带 `id` 条目时，结论只能用它 `evidence_ids` 指向的条目里的数字——「渠道A 贡献 900」不能再拿「渠道B = 900」来溯源；
+- **对账联动**：`--reconciliation` 传入对账结果后，引用 `verified: false` 的条目会被 `reconciliation_mismatch` 拦下；同时披露表内值与明细值的结论不算掩盖；
+- **方向与符号**：`下降 20.45%` 不再匹配 `+0.2045`，「上升」写反会被抓出；`-20.45%`、`1,234.56` 都能正确解析；结论里同时出现上下行时不强加方向约束；
+- **序号不算数据**：「分组 3」「第 1 章」这类被引用的对象名不参与溯源，避免逼模型改措辞；
+- **弱模式标注**：证据是自由结构（条目没有 `id`）时给 `unscoped_evidence` 警告，提示数字只做了数字袋匹配；
+- `--require-evidence`（默认开启）：未传 `--evidence` 时数字溯源直接 fail；
+- `--no-require-evidence`：显式关闭溯源（不推荐）；
+- `--lenient-numbers`：把数字不可溯源降级为警告（默认直接 fail）；
+- `--require-evidence-ids`：`evidence_ids` 解析不到条目时直接 fail（默认只给 info 提示）；
+- `--strict`：把弱模式证据与未解析 `evidence_ids` 升级为失败；
 - `--max-exploratory-tests`（默认 5）：超过该数量的探索性结论触发 `multiple_comparison_risk` 警告；
-- `--strict`：把 `untraceable_number` 警告升级为 fail；
-- L2 及以上结论若使用因果/证明措辞，必须提供 `identification_strategy`（`randomized` / `ab_test` / `did` / `matching` / `iv` / `rdd` / `synthetic_control` 等），否则 fail；
-- 数字溯源按"量纲"严格匹配：raw / percent / 百分点（pp）三种量纲独立，raw↔percent 反向转换不被允许；
+- L2 及以上结论若使用因果/证明措辞，**必须**提供白名单内的 `identification_strategy`（`randomized` / `ab_test` / `did` / `matching` / `iv` / `rdd` / `synthetic_control` 等），**未提供同样 fail**；
 - 同一时间窗被多条结论引用时给出 `repeated_window_checks` 警告。

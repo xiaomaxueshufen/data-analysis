@@ -30,6 +30,29 @@
 - `changepoint`：异动断点检测（季节性调整 + CUSUM + 水平切点）；
 - `multiple_testing`：多重比较校正（Bonferroni / Holm / BH-FDR）。
 
+## 方向 → 方法文件
+
+选定方向后，只加载下表命中的文件，不要整目录读。
+
+| 方向 | 读这个 |
+|---|---|
+| `anomaly` | `methods/anomaly.md` |
+| `funnel` | `methods/funnel.md` |
+| `metric_system` | `methods/metric-system.md` |
+| `ab_test` | `methods/ab-test.md`、需要设计新实验时加 `methods/experiment-design.md` |
+| `causal` | `methods/causal.md` |
+| `segmentation` | `methods/segmentation.md`、需要价值分层时加 `methods/rfm.md` |
+| `contribution` | `methods/contribution.md` |
+| `ratio_decomp` | `methods/ratio-decomp.md` |
+| `attribution` | `methods/attribution.md` |
+| `retention` | `methods/cohort-retention.md`、流失/删失时加 `methods/survival.md` |
+| `path` | `methods/path-analysis.md` |
+| `price_elasticity` | `methods/price-elasticity.md` |
+| `changepoint` | `methods/changepoint.md` |
+| `multiple_testing` | `methods/multiple-testing.md` |
+
+（路径相对 `references/`；`methods/` 下共 17 个文件，一次最多读 2–3 个。）
+
 ## 输出 JSON
 
 ```json

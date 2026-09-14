@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import hashlib
+import contextlib
 import csv
 import io
 import json
 import math
 import re
+import sys
+import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -44,6 +47,66 @@ ROLE_PATTERNS = {
 }
 
 
+class DataError(ValueError):
+    """输入数据本身的问题：文件不存在、类型不支持、表读不出来、配置缺字段。
+
+    继承 ValueError，这样既有调用方按 ValueError 兜底也不会被破坏；
+    同时让 CLI 能把它和真正的程序缺陷（IndexError / KeyError / TypeError）
+    区分开——后者应该继续抛栈，不能被伪装成「用户输入有问题」。
+    """
+
+
+SUPPORTED_SUFFIXES = {".csv", ".tsv", ".xlsx", ".xlsm"}
+
+
+def ensure_readable(path: str | Path) -> Path:
+    """把「这个路径能不能当数据读」的检查集中到一处，错误信息统一。"""
+    source = Path(path)
+    if not source.exists():
+        raise DataError(f"文件不存在：{source}")
+    if source.is_dir():
+        raise DataError(f"这是一个目录，不是数据文件：{source}")
+    suffix = source.suffix.lower()
+    if suffix not in SUPPORTED_SUFFIXES:
+        raise DataError(f"不支持的文件类型：{suffix or '（无扩展名）'}；只支持 .xlsx / .xlsm / .csv / .tsv")
+    if source.stat().st_size == 0:
+        raise DataError(f"文件是空的：{source}")
+    return source
+
+
+@contextlib.contextmanager
+def quiet_numeric():
+    """屏蔽 numpy/pandas 在极端数值上的 RuntimeWarning（溢出、无效值转换等）。
+
+    这些告警不是可执行的修复建议：数值会变成 inf/NaN，交给 write_json 转成 null。
+    保留我们自己的 RuntimeWarning，只压第三方数值库的噪声。
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=RuntimeWarning, module=r"(numpy|pandas)")
+        with np.errstate(all="ignore"):
+            yield
+
+
+def cli_guard(work: Callable[[], int]) -> int:
+    """把可预期的输入错误转成结构化输出 + 退出码 2，不把 traceback 甩给用户。
+
+    只兜输入/环境类问题；IndexError、KeyError、TypeError 这类程序缺陷继续抛栈，
+    否则真正的 bug 会被伪装成「用户输入错」而长期潜伏。
+    """
+    with quiet_numeric():
+        try:
+            return work()
+        except DataError as exc:
+            print(json.dumps({"status": "fail", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
+            return 2
+        except json.JSONDecodeError as exc:
+            print(json.dumps({"status": "fail", "error": f"JSON 解析失败：{exc}"}, ensure_ascii=False), file=sys.stderr)
+            return 2
+        except OSError as exc:
+            print(json.dumps({"status": "fail", "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False), file=sys.stderr)
+            return 2
+
+
 def json_default(value: Any) -> Any:
     if isinstance(value, (pd.Timestamp, pd.Timedelta)):
         return value.isoformat()
@@ -56,10 +119,34 @@ def json_default(value: Any) -> Any:
     return str(value)
 
 
+def sanitize_json(value: Any) -> Any:
+    """把 inf / -inf / NaN 递归换成 null。
+
+    json.dumps 默认会写 `Infinity` / `NaN`，那不是合法 JSON：JS 的 JSON.parse、
+    jq、Go 等严格解析器都会拒绝，整条下游流水线会因此断掉。
+    """
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {str(key): sanitize_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [sanitize_json(item) for item in value]
+    if isinstance(value, np.ndarray):
+        return [sanitize_json(item) for item in value.tolist()]
+    if isinstance(value, np.generic):
+        scalar = value.item()
+        if isinstance(scalar, float) and not math.isfinite(scalar):
+            return None
+        return scalar
+    return value
+
+
 def write_json(path: str | Path, payload: Any) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, default=json_default),
+        # allow_nan=False 是兜底：万一还有非有限值漏过 sanitize_json，
+        # 这里会立刻炸出来，而不是悄悄写出非法 JSON。
+        json.dumps(sanitize_json(payload), ensure_ascii=False, indent=2, default=json_default, allow_nan=False),
         encoding="utf-8",
     )
 
@@ -98,8 +185,12 @@ def unique_columns(columns: list[Any]) -> list[str]:
     return output
 
 
+def _header_cells(row: pd.Series) -> list[str]:
+    return [str(v).strip() for v in row.tolist() if pd.notna(v) and str(v).strip()]
+
+
 def _header_score(row: pd.Series) -> float:
-    values = [str(v).strip() for v in row.tolist() if pd.notna(v) and str(v).strip()]
+    values = _header_cells(row)
     if len(values) < 2:
         return -1000
     unique = len(set(values))
@@ -107,19 +198,37 @@ def _header_score(row: pd.Series) -> float:
     return len(values) * 2 + unique * 2 + non_numeric * 0.5
 
 
+def _looks_like_header(row: pd.Series) -> bool:
+    """真表头不会有一半以上是纯数值。
+
+    参差行里，多出一格的数据行会凭「格子更多」在打分上压过真表头，
+    结果整列错位。这里用「多数单元格是文字」把这类数据行排掉。
+    """
+    values = _header_cells(row)
+    if len(values) < 2:
+        return False
+    text_like = sum(not bool(re.fullmatch(r"[-+]?\d+(\.\d+)?", v)) for v in values)
+    return text_like * 2 > len(values)
+
+
 def detect_header(raw: pd.DataFrame, scan_rows: int = 15) -> int:
     limit = min(scan_rows, len(raw))
-    scores = [(idx, _header_score(raw.iloc[idx])) for idx in range(limit)]
-    scores.sort(key=lambda item: item[1], reverse=True)
-    return scores[0][0] if scores and scores[0][1] > 0 else 0
+    scored = [(idx, _header_score(raw.iloc[idx])) for idx in range(limit)]
+    shaped = [item for item in scored if _looks_like_header(raw.iloc[item[0]])]
+    pool = shaped or scored
+    # 同分时取更靠上的行，避免把数据行当表头
+    pool.sort(key=lambda item: (-item[1], item[0]))
+    return pool[0][0] if pool and pool[0][1] > 0 else 0
 
 
-def _read_csv(path: Path) -> dict[str, pd.DataFrame]:
+def _read_csv(path: Path) -> tuple[dict[str, pd.DataFrame], list[str]]:
     encodings = ["utf-8-sig", "utf-8", "gb18030", "gbk"]
     last_error: Exception | None = None
     for encoding in encodings:
         try:
             text = path.read_text(encoding=encoding)
+            if not text.strip():
+                raise DataError(f"文件里没有任何内容：{path}")
             sample = text[:10000]
             if path.suffix.lower() == ".tsv":
                 delimiter = "\t"
@@ -131,22 +240,45 @@ def _read_csv(path: Path) -> dict[str, pd.DataFrame]:
             rows = list(csv.reader(io.StringIO(text), delimiter=delimiter))[:20]
             raw = pd.DataFrame(rows)
             header = detect_header(raw)
-            frame = pd.read_csv(path, header=header, encoding=encoding, sep=delimiter, engine="python")
+            # 参差行（某行格子比表头多）会让 pandas 把多出来的第一格当索引，
+            # 整列错位。index_col=False 固定列映射，代价是被丢弃的多余格子只发
+            # ParserWarning——这里记录下来，交给画像/质量门禁去提示，不静默吞掉。
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always", pd.errors.ParserWarning)
+                frame = pd.read_csv(
+                    path, header=header, encoding=encoding, sep=delimiter,
+                    engine="python", index_col=False,
+                )
+            notices = [
+                str(item.message) for item in caught
+                if issubclass(item.category, pd.errors.ParserWarning)
+            ]
             frame.columns = unique_columns(frame.columns.tolist())
-            return {path.stem: frame.dropna(how="all")}
+            return {path.stem: frame.dropna(how="all")}, notices
+        except DataError:
+            raise
         except Exception as error:
             last_error = error
-    raise ValueError(f"无法读取 CSV：{path}；最后错误：{last_error}")
+    raise DataError(f"无法读取 CSV：{path}；最后错误：{type(last_error).__name__}: {last_error}")
 
 
 def load_tables(path: str | Path) -> dict[str, dict[str, Any]]:
-    source = Path(path)
+    source = ensure_readable(path)
     if source.suffix.lower() in {".csv", ".tsv"}:
-        tables = _read_csv(source)
-        return {name: {"frame": frame, "header_row": 0, "source": name} for name, frame in tables.items()}
-    if source.suffix.lower() not in {".xlsx", ".xls", ".xlsm"}:
-        raise ValueError("仅支持 Excel、CSV 或 TSV 文件")
-    raw_book = pd.ExcelFile(source)
+        tables, parse_notices = _read_csv(source)
+        output = {
+            name: {"frame": frame, "header_row": 0, "source": name, "parse_notices": parse_notices}
+            for name, frame in tables.items()
+        }
+        if not output or all(table["frame"].shape[1] == 0 for table in output.values()):
+            raise DataError(f"没能从文件里解析出任何列：{source}")
+        return output
+    try:
+        raw_book = pd.ExcelFile(source)
+    except DataError:
+        raise
+    except Exception as error:
+        raise DataError(f"无法打开 Excel：{source}；{type(error).__name__}: {error}") from error
     output: dict[str, dict[str, Any]] = {}
     for sheet in raw_book.sheet_names:
         raw = pd.read_excel(source, sheet_name=sheet, header=None, nrows=20)
@@ -154,7 +286,7 @@ def load_tables(path: str | Path) -> dict[str, dict[str, Any]]:
         frame = pd.read_excel(source, sheet_name=sheet, header=header)
         frame.columns = unique_columns(frame.columns.tolist())
         frame = frame.dropna(how="all").reset_index(drop=True)
-        output[sheet] = {"frame": frame, "header_row": int(header), "source": sheet}
+        output[sheet] = {"frame": frame, "header_row": int(header), "source": sheet, "parse_notices": []}
     return output
 
 
@@ -171,9 +303,10 @@ def infer_roles(columns: list[str]) -> dict[str, list[str]]:
 
 
 def parse_date_series(series: pd.Series) -> pd.Series:
-    if pd.api.types.is_datetime64_any_dtype(series):
-        return pd.to_datetime(series, errors="coerce")
-    return pd.to_datetime(series, errors="coerce", format="mixed")
+    with quiet_numeric():
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return pd.to_datetime(series, errors="coerce")
+        return pd.to_datetime(series, errors="coerce", format="mixed")
 
 
 def is_numeric_series(series: pd.Series) -> bool:
@@ -188,18 +321,19 @@ def to_numeric(series: pd.Series) -> pd.Series:
 
 
 def robust_stats(values: pd.Series) -> dict[str, float | None]:
-    numeric = pd.to_numeric(values, errors="coerce").dropna()
-    if numeric.empty:
-        return {"median": None, "mad": None, "mean": None, "std": None, "n": 0}
-    median = float(numeric.median())
-    mad = float((numeric - median).abs().median())
-    return {
-        "median": median,
-        "mad": mad,
-        "mean": float(numeric.mean()),
-        "std": float(numeric.std(ddof=1)) if len(numeric) > 1 else 0.0,
-        "n": int(len(numeric)),
-    }
+    with quiet_numeric():
+        numeric = pd.to_numeric(values, errors="coerce").dropna()
+        if numeric.empty:
+            return {"median": None, "mad": None, "mean": None, "std": None, "n": 0}
+        median = float(numeric.median())
+        mad = float((numeric - median).abs().median())
+        return {
+            "median": median,
+            "mad": mad,
+            "mean": float(numeric.mean()),
+            "std": float(numeric.std(ddof=1)) if len(numeric) > 1 else 0.0,
+            "n": int(len(numeric)),
+        }
 
 
 def metric_field(table: dict[str, Any], role: str, contract: dict[str, Any] | None = None) -> str | None:

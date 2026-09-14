@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>支付成功率下滑定位：3 月 1 日口径切换是主因</title>
+<style>
+:root {
+  --bg:#fbfbfd; --surface:#ffffff; --surface-alt:#f5f5f7;
+  --border:#d2d2d7; --ink:#1d1d1f; --ink-soft:#424245;
+  --muted:#86868b; --accent:#1d1d1f; --accent-soft:#f5f5f7;
+  --pos:#00695c; --neg:#b3261e;
+  --radius:18px; --radius-sm:12px;
+  --measure:68ch; --gap:72px;
+}
+* { box-sizing:border-box; }
+html { background:var(--bg); }
+body {
+  margin:0 auto; max-width:1040px; padding:72px 28px 96px;
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:17px; line-height:1.47; letter-spacing:-0.022em;
+  -webkit-font-smoothing:antialiased; font-variant-numeric:tabular-nums;
+}
+h1,h2,h3 { margin:0; font-weight:600; text-wrap:balance; }
+h1 { font-size:clamp(2.1rem,5vw,3.1rem); line-height:1.08; letter-spacing:-0.031em; }
+h2 { font-size:clamp(1.5rem,3.2vw,2.1rem); line-height:1.14; letter-spacing:-0.026em; }
+h3 { font-size:1.1875rem; line-height:1.3; letter-spacing:-0.01em; }
+p { margin:14px 0; max-width:var(--measure); color:var(--ink-soft); text-wrap:pretty; }
+b { color:var(--ink); font-weight:600; }
+.masthead { padding-bottom:26px; border-bottom:1px solid var(--border); }
+.eyebrow { margin:0 0 12px; font-size:.82rem; letter-spacing:.01em; color:var(--muted); font-weight:500; }
+.subtitle { margin:16px 0 0; font-size:1.22rem; line-height:1.42; color:var(--ink-soft); max-width:62ch; }
+.meta-row { display:flex; flex-wrap:wrap; gap:8px 34px; margin-top:26px; align-items:center; }
+.meta-item { font-size:.86rem; color:var(--ink-soft); }
+.meta-item b { display:block; font-size:.72rem; letter-spacing:.04em; color:var(--muted); font-weight:500; }
+.degraded { margin:22px 0 0; padding:16px 20px; border-radius:var(--radius-sm); background:var(--surface-alt);
+  border:1px solid var(--border); font-size:.88rem; color:var(--ink-soft); display:flex; flex-wrap:wrap; gap:8px 20px; align-items:baseline; }
+.degraded strong { color:var(--neg); font-size:.76rem; letter-spacing:.1em; }
+.deg-reason { color:var(--ink); }
+.toc { display:flex; flex-wrap:wrap; gap:22px; padding:14px 0; border-bottom:1px solid var(--border);
+  font-size:.84rem; position:sticky; top:0; background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:saturate(180%) blur(20px); z-index:5; }
+.toc a { color:var(--muted); text-decoration:none; transition:color .2s ease; }
+.toc a:hover { color:var(--ink); }
+.block { padding-top:var(--gap); }
+.block + .block { border-top:1px solid var(--border); }
+.block h2 { margin-bottom:24px; }
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:30px; }
+.kpi { background:var(--surface-alt); border-radius:var(--radius); padding:22px 24px; }
+.kpi-label { display:block; font-size:.8rem; color:var(--muted); }
+.kpi-value { display:block; font-size:clamp(1.75rem,3.6vw,2.4rem); font-weight:600; letter-spacing:-0.024em; margin-top:8px; }
+.kpi-delta { display:inline-block; margin-top:8px; font-size:.84rem; color:var(--muted); }
+.kpi-delta.pos { color:var(--pos); }
+.kpi-delta.neg { color:var(--neg); }
+.finding { position:relative; background:#f5f5f7;
+  border:1px solid transparent;
+  border-radius:var(--radius); padding:26px 28px; margin-bottom:12px; overflow:hidden; }
+.finding .rule { position:absolute; left:0; top:0; bottom:0; width:3px; }
+.finding h3 { margin-bottom:8px; }
+.finding-body { margin:0; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.chip { font-size:.76rem; padding:4px 11px; border-radius:980px; color:var(--muted); background:var(--surface); }
+.finding .chip { background:color-mix(in srgb, var(--surface) 70%, transparent); }
+.chip-level { color:var(--accent); }
+.chip-limit { color:var(--ink-soft); }
+.chip-warn { color:var(--neg); background:transparent; border:1px solid var(--neg); }
+.analysis-block { margin-bottom:38px; }
+.analysis-block h3 { margin-bottom:12px; }
+figure.chart { margin:26px 0 30px; }
+figure.chart figcaption { font-size:.92rem; font-weight:500; color:var(--ink-soft); margin-bottom:14px; }
+.chart-title { display:block; font-size:.95rem; font-weight:600; color:var(--ink); margin-bottom:3px; }
+.chart-caption { display:block; }
+.chart-svg { width:100%; height:auto; display:block; overflow:visible; }
+.svg-label { font-size:12.5px; fill:var(--ink-soft); font-weight:500; }
+.svg-value { font-size:12.5px; fill:var(--ink); font-weight:600; }
+.svg-value-in { font-size:12.5px; fill:#fff; font-weight:600; }
+.svg-axis { font-size:11px; fill:var(--muted); }
+.svg-note { font-size:11px; fill:var(--muted); }
+/* 图表标注压到折线/网格上时，用底色描边留出光晕，保证仍然读得清 */
+.svg-value, .svg-note { paint-order:stroke fill; stroke:var(--surface); stroke-width:3px; stroke-linejoin:round; }
+.chart-note { font-size:.8rem; color:var(--muted); margin:12px 0 0; }
+.chart-source { font-size:.76rem; color:var(--muted); margin:4px 0 0; }
+table.data { width:100%; border-collapse:collapse; margin:20px 0; font-size:.88rem; }
+table.data caption { text-align:left; font-size:.88rem; font-weight:500; color:var(--ink-soft); padding-bottom:10px; }
+table.data th, table.data td { text-align:left; padding:12px 14px 12px 0; border-bottom:1px solid var(--border); }
+table.data th { font-size:.76rem; letter-spacing:.02em; color:var(--muted); font-weight:500; }
+table.data td.num, table.data th.num { text-align:right; font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; padding-left:16px; }
+.conclusions { list-style:none; padding:0; margin:0; }
+.conclusion { padding:16px 0; border-bottom:1px solid var(--border); display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; }
+.conclusion-text { flex:1 1 360px; color:var(--ink); }
+.steps-title { margin:30px 0 14px; }
+.steps { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
+.step { background:var(--surface-alt); border-radius:var(--radius-sm); padding:16px 20px; }
+.step-q { display:block; color:var(--ink); }
+.step-need { display:block; margin-top:6px; font-size:.84rem; color:var(--muted); }
+.aside { font-size:.86rem; color:var(--muted); }
+.empty { color:var(--muted); font-size:.86rem; }
+footer.colophon { margin-top:56px; padding-top:20px; border-top:1px solid var(--border); font-size:.78rem; color:var(--muted); }
+@media (max-width:720px) {
+  body { padding:40px 20px 64px; }
+  .subtitle { font-size:1.06rem; }
+}
+@media print {
+  body { max-width:none; padding:0; }
+  .toc { display:none; }
+  .block, figure.chart, table.data, .finding, .kpi-grid { break-inside:avoid; }
+}
+@media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+
+<header class="masthead"><p class="eyebrow">示例 · 渠道与版本复盘</p><h1>支付成功率下滑定位：3 月 1 日口径切换是主因</h1><p class="subtitle">先定位变化、再排除解释；本报告只输出高置信候选与待验证假设，不输出根因。</p><div class="meta-row"><span class="meta-item"><b>观察窗</b>2026-01-01 至 2026-03-31</span><span class="meta-item"><b>来源</b>sample.csv（示例数据，非真实业务数据）</span><span class="meta-item"><b>结论分级</b>L0–L4</span><span class="chip chip-warn">数据质量需复核：2 行会话字段缺失</span></div></header>
+<nav class="toc"><a href="#s1">核心发现</a><a href="#s2">分析背景与目标</a><a href="#s3">数据概况</a><a href="#s4">深入分析</a><a href="#s5">结论与建议</a><a href="#s6">附录</a></nav>
+<main>
+<section class="block" id="s1"><h2>核心发现</h2><div class="kpi-grid"><div class="kpi"><span class="kpi-label">订单量（3 月）</span><span class="kpi-value">789.2</span><span class="kpi-delta neg">▼ -20.4% 环比</span></div><div class="kpi"><span class="kpi-label">支付成功率</span><span class="kpi-value">92.0%</span><span class="kpi-delta flat"> 持平</span></div><div class="kpi"><span class="kpi-label">日均 GMV</span><span class="kpi-value">94,680</span><span class="kpi-delta neg">▼ -20.1%</span></div><div class="kpi"><span class="kpi-label">有效天数</span><span class="kpi-value">90</span><span class="kpi-delta flat"> 无缺口</span></div></div><article class="finding"><span class="rule" style="background:#b3261e"></span><h3>订单量在 3 月 1 日发生水平位移，幅度 -20.4%</h3><p class="finding-body">59 天均值 992.1，之后 31 天均值 789.2，标准误 9.11，位移区间 [-220.8, -185.0]。断点位置由数据挑选，实际显著性弱于该区间。</p><div class="chips"><span class="chip">证据 E004</span><span class="chip chip-level">L1 比较</span><span class="chip chip-limit">限制：单断点搜索</span><span class="chip chip-limit">限制：未做季节调整</span></div></article><article class="finding"><span class="rule" style="background:#d2d2d7"></span><h3>位移与周内节律无关</h3><p class="finding-body">未检出稳定的星期效应，日间波动在断点前后没有系统性变化，因此不是周期性因素。</p><div class="chips"><span class="chip">证据 E005</span><span class="chip chip-level">L1 比较</span><span class="chip chip-limit">限制：仅 90 天</span></div></article><article class="finding"><span class="rule" style="background:#1d1d1f"></span><h3>渠道结构同期变化 3.2 个百分点，贡献了约 -0.6% 缺口</h3><p class="finding-body">结构变化只能解释缺口的很小一部分，剩余缺口需要有同期事件或口径变更来对齐。</p><div class="chips"><span class="chip">证据 E006</span><span class="chip">证据 E007</span><span class="chip chip-level">L2 解释</span><span class="chip chip-limit">限制：无渠道投放日志</span></div></article><article class="finding"><span class="rule" style="background:#1d1d1f"></span><h3>发版时点与断点同日，但缺少对照，不能写成根因</h3><p class="finding-body">3 月 1 日同时命中一次版本发布，缺少可比对照，只能作为高置信候选，需补对照窗口后验证。</p><div class="chips"><span class="chip">证据 E008</span><span class="chip">证据 E009</span><span class="chip chip-level">L2 解释</span><span class="chip chip-limit">限制：无随机化</span><span class="chip chip-limit">限制：无对照版本</span></div></article></section><section class="block" id="s2"><h2>分析背景与目标</h2><p>本次复盘面向渠道与版本的下一步投入决策：需要区分「真实需求下滑」与「口径或埋点变化」。主指标为订单量与支付成功率，护栏为 GMV 与有效天数。由于缺少随机化与版本对照，本报告不输出因果结论。</p></section><section class="block" id="s3"><h2>数据概况</h2><p>数据为 90 天逐日聚合表，覆盖 3 个渠道；日期连续无缺口，无重复键。</p><table class="data"><caption>字段与质量</caption><thead><tr><th class="">字段</th><th class="">角色</th><th class="num">缺失</th><th class="">备注</th></tr></thead><tbody><tr><td class="">date</td><td class="">时间轴</td><td class="num">0</td><td class="">2026-01-01 起连续 90 天</td></tr><tr><td class="">orders</td><td class="">主指标</td><td class="num">0</td><td class="">逐日计数</td></tr><tr><td class="">pay_success</td><td class="">护栏</td><td class="num">0</td><td class="">与 orders 同粒度</td></tr><tr><td class="">channel</td><td class="">维度</td><td class="num">0</td><td class="">A/B/C 三类</td></tr><tr><td class="">gmv</td><td class="">护栏</td><td class="num">0</td><td class="">逐日金额</td></tr></tbody></table><p class="aside">质量门禁：无重复键、无负值；渠道字段基数稳定。</p></section><section class="block" id="s4"><h2>深入分析</h2><div class="analysis-block"><h3>机制一：水平位移与趋势断点</h3><figure class="chart"><figcaption><span class="chart-title">逐日订单量与同星期基线</span><span class="chart-caption">订单量在同星期基线上下波动，3 月 1 日后整体下移</span></figcaption><svg class="chart-svg" viewBox="0 0 720 230" role="img" aria-label="逐日订单量与同星期基线"><line x1="52" y1="198.0" x2="704" y2="198.0" stroke="#d2d2d7" stroke-width="1" opacity="0.5"/><text x="42" y="202.0" text-anchor="end" class="svg-axis">720</text><line x1="52" y1="108.0" x2="704" y2="108.0" stroke="#d2d2d7" stroke-width="1" opacity="0.5"/><text x="42" y="112.0" text-anchor="end" class="svg-axis">878</text><line x1="52" y1="18.0" x2="704" y2="18.0" stroke="#d2d2d7" stroke-width="1" opacity="0.5"/><text x="42" y="22.0" text-anchor="end" class="svg-axis">1,037</text><line x1="52" y1="198" x2="704" y2="198" stroke="#d2d2d7" stroke-width="1"/><line x1="52" y1="43.3" x2="704" y2="43.3" stroke="#86868b" stroke-width="1" stroke-dasharray="4 5"/><text x="704.0" y="36.3" text-anchor="end" class="svg-note">基线 992.1</text><line x1="486.7" y1="18" x2="486.7" y2="198" stroke="#b3261e" stroke-width="1" stroke-dasharray="3 4"/><text x="493.7" y="31.0" class="svg-note">3/1 位移</text><path d="M52.0,38.8 L160.7,37.7 L269.3,47.4 L378.0,44.5 L486.7,178.3 L595.3,158.4 L704.0,163.5 L704.0,198.0 L52.0,198.0 Z" fill="#0071e3" opacity="0.06"/><path d="M52.0,38.8 L160.7,37.7 L269.3,47.4 L378.0,44.5 L486.7,178.3 L595.3,158.4 L704.0,163.5" fill="none" stroke="#0071e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle class="pop" cx="52.0" cy="38.8" r="3" fill="#fbfbfd" stroke="#0071e3" stroke-width="1.8"/><text x="52.0" y="28.8" text-anchor="start" class="svg-value">1,000</text><text x="52.0" y="220" text-anchor="start" class="svg-axis">1/1</text><circle class="pop" cx="160.7" cy="37.7" r="3" fill="#fbfbfd" stroke="#0071e3" stroke-width="1.8"/><circle class="pop" cx="269.3" cy="47.4" r="3" fill="#fbfbfd" stroke="#0071e3" stroke-width="1.8"/><circle class="pop" cx="378.0" cy="44.5" r="3" fill="#fbfbfd" stroke="#0071e3" stroke-width="1.8"/><circle class="pop" cx="486.7" cy="178.3" r="3" fill="#fbfbfd" stroke="#0071e3" stroke-width="1.8"/><circle class="pop" cx="595.3" cy="158.4" r="3" fill="#fbfbfd" stroke="#0071e3" stroke-width="1.8"/><circle class="pop" cx="704.0" cy="163.5" r="3" fill="#fbfbfd" stroke="#0071e3" stroke-width="1.8"/><text x="704.0" y="153.5" text-anchor="end" class="svg-value">781</text><text x="704.0" y="220" text-anchor="end" class="svg-axis">3/31</text></svg><p class="chart-note">断点由 changepoint_scan 选出，位置本身是数据挑选的结果。</p><p class="chart-source">来源：evidence E004</p></figure></div><div class="analysis-block"><h3>机制二：渠道与漏斗结构</h3><figure class="chart"><figcaption><span class="chart-caption">各渠道对缺口的贡献（相对基线）</span></figcaption><svg class="chart-svg" viewBox="0 0 720 136" role="img" aria-label="各渠道对缺口的贡献（相对基线）"><text x="0" y="25" class="svg-label">渠道 A</text><rect x="150" y="10" width="478" height="20" rx="6" fill="#f5f5f7"/><rect x="150.0" y="10" width="478.0" height="20" rx="6" fill="#b3261e" opacity="1.00"/><text x="720" y="25" text-anchor="end" class="svg-value">-141.2</text><text x="0" y="67" class="svg-label">渠道 B</text><rect x="150" y="52" width="478" height="20" rx="6" fill="#f5f5f7"/><rect x="150.0" y="52" width="130.7" height="20" rx="6" fill="#b3261e" opacity="0.62"/><text x="720" y="67" text-anchor="end" class="svg-value">-38.6</text><text x="0" y="109" class="svg-label">渠道 C</text><rect x="150" y="94" width="478" height="20" rx="6" fill="#f5f5f7"/><rect x="150.0" y="94" width="78.2" height="20" rx="6" fill="#b3261e" opacity="0.62"/><text x="720" y="109" text-anchor="end" class="svg-value">-23.1</text></svg><p class="chart-note">按组对账，缺口合计 -202.9，与总量位移一致。</p><p class="chart-source">来源：evidence E006</p></figure><figure class="chart"><figcaption><span class="chart-caption">支付漏斗（3 月）</span></figcaption><svg class="chart-svg" viewBox="0 0 720 188" role="img" aria-label="支付漏斗（3 月）"><text x="0" y="29" class="svg-label">下单</text><rect x="150" y="4" width="330.0" height="36" rx="9" fill="#0071e3" opacity="1.00"/><text x="164" y="28" class="svg-value-in" style="fill:#ffffff">78,914</text><text x="0" y="89" class="svg-label">发起支付</text><rect x="150" y="64" width="310.3" height="36" rx="9" fill="#0071e3" opacity="0.82"/><text x="164" y="88" class="svg-value-in" style="fill:#1d1d1f">74,200</text><text x="476.3" y="88" class="svg-note">转化 94.0%　流失 4,714</text><text x="0" y="149" class="svg-label">支付成功</text><rect x="150" y="124" width="285.5" height="36" rx="9" fill="#0071e3" opacity="0.64"/><text x="164" y="148" class="svg-value-in" style="fill:#1d1d1f">68,264</text><text x="451.5" y="148" class="svg-note">转化 92.0%　流失 5,936</text></svg><p class="chart-source">来源：evidence E010</p></figure></div><div class="analysis-block"><h3>机制三：分群矩阵</h3><figure class="chart"><figcaption><span class="chart-caption">渠道 × 月份 订单量</span></figcaption><svg class="chart-svg" viewBox="0 0 422 164" role="img" aria-label="渠道 × 月份 订单量"><text x="172" y="21" text-anchor="middle" class="svg-axis">1 月</text><text x="272" y="21" text-anchor="middle" class="svg-axis">2 月</text><text x="372" y="21" text-anchor="middle" class="svg-axis">3 月</text><text x="0" y="58" class="svg-label">渠道 A</text><rect x="125" y="35" width="94" height="36" rx="8" fill="#0071e3" opacity="0.69"/><text x="172" y="58" text-anchor="middle" class="svg-value-in" style="fill:#1d1d1f">502</text><rect x="225" y="35" width="94" height="36" rx="8" fill="#0071e3" opacity="0.68"/><text x="272" y="58" text-anchor="middle" class="svg-value-in" style="fill:#1d1d1f">498</text><rect x="325" y="35" width="94" height="36" rx="8" fill="#0071e3" opacity="0.43"/><text x="372" y="58" text-anchor="middle" class="svg-value-in" style="fill:#1d1d1f">361</text><text x="0" y="100" class="svg-label">渠道 B</text><rect x="125" y="77" width="94" height="36" rx="8" fill="#0071e3" opacity="0.33"/><text x="172" y="100" text-anchor="middle" class="svg-value-in" style="fill:#1d1d1f">301</text><rect x="225" y="77" width="94" height="36" rx="8" fill="#0071e3" opacity="0.32"/><text x="272" y="100" text-anchor="middle" class="svg-value-in" style="fill:#1d1d1f">296</text><rect x="325" y="77" width="94" height="36" rx="8" fill="#0071e3" opacity="0.25"/><text x="372" y="100" text-anchor="middle" class="svg-value-in" style="fill:#1d1d1f">257</text><text x="0" y="142" class="svg-label">渠道 C</text><rect x="125" y="119" width="94" height="36" rx="8" fill="#0071e3" opacity="0.14"/><text x="172" y="142" text-anchor="middle" class="svg-value-in" style="fill:#1d1d1f">199</text><rect x="225" y="119" width="94" height="36" rx="8" fill="#0071e3" opacity="0.15"/><text x="272" y="142" text-anchor="middle" class="svg-value-in" style="fill:#1d1d1f">206</text><rect x="325" y="119" width="94" height="36" rx="8" fill="#0071e3" opacity="0.09"/><text x="372" y="142" text-anchor="middle" class="svg-value-in" style="fill:#1d1d1f">171</text></svg><p class="chart-source">来源：evidence E006</p></figure></div></section><section class="block" id="s5"><h2>结论与建议</h2><ul class="conclusions"><li class="conclusion"><span class="conclusion-text">订单量位移确定发生在 3 月 1 日，幅度 -20.4%，且不是周内节律造成的。</span><span class="chip">证据 E004</span><span class="chip">证据 E005</span></li><li class="conclusion"><span class="conclusion-text">结构变化只解释缺口的约 0.6%，不能单独解释位移。</span><span class="chip">证据 E006</span><span class="chip">证据 E007</span></li><li class="conclusion"><span class="conclusion-text">发版同日是当前最强的高置信候选，但缺对照，尚不能写成根因。</span><span class="chip">证据 E008</span><span class="chip">证据 E009</span></li></ul><h3 class="steps-title">后续分析建议</h3><ul class="steps"><li class="step"><span class="step-q">位移是否由口径或埋点变更造成？</span><span class="step-need">需要：埋点版本表 + 事件定义变更记录（覆盖 2/25–3/5）</span></li><li class="step"><span class="step-q">发版是否真的造成了下降？</span><span class="step-need">需要：未发版渠道的同期对照，或灰度分流的处理/对照数据</span></li></ul></section><section class="block" id="s6"><h2>附录</h2><table class="data"><caption>证据索引</caption><thead><tr><th class="">证据</th><th class="">来源算子</th><th class="">关键数值</th></tr></thead><tbody><tr><td class="">E004</td><td class="">changepoint_scan</td><td class="">-0.2045</td></tr><tr><td class="">E005</td><td class="">anomaly_scan</td><td class="">周内效应不显著</td></tr><tr><td class="">E006</td><td class="">contribution</td><td class="">-202.9</td></tr><tr><td class="">E010</td><td class="">funnel_rates</td><td class="">92.0%</td></tr></tbody></table><p class="aside">本报告所有数字来自 outputs/run1 下的证据 JSON，可逐条复算。</p><p class="aside">限制：无随机化、无对照版本、无投放日志。</p><p class="aside">本文件是示例：数据为合成数据，仅用于演示 report_spec 的结构与 da_report 的渲染结果。</p></section>
+</main>
+<footer class="colophon">本报告由 data-analysis skill 生成；数字来自离线证据 JSON，可逐条复算。</footer>
+<script>
+(function () {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || !('IntersectionObserver' in window)) return;
+  var nodes = [].slice.call(
+    document.querySelectorAll('figure.chart, .finding, .analysis-block, .kpi-grid')
+  );
+  var showAll = function () {
+    nodes.forEach(function (node) { node.classList.add('in'); });
+  };
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('in');
+      observer.unobserve(entry.target);
+    });
+  }, { rootMargin: '0px 0px -4% 0px' });
+  nodes.forEach(function (node) { node.classList.add('reveal'); observer.observe(node); });
+  // 兜底：打印、截图、后台标签页不会触发布局观察，1.5s 后强制全部显示。
+  setTimeout(showAll, 1500);
+  window.addEventListener('beforeprint', showAll);
+})();
+</script>
+<style>
+.reveal{opacity:0;transform:translateY(10px);transition:opacity .55s cubic-bezier(.4,0,.2,1),transform .55s cubic-bezier(.4,0,.2,1)}
+.reveal.in{opacity:1;transform:none}
+@media print{.reveal{opacity:1 !important;transform:none !important}}
+@media (prefers-reduced-motion: reduce){.reveal{opacity:1 !important;transform:none !important}}
+</style>
+</body>
+</html>

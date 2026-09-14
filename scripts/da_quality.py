@@ -2,11 +2,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
-import pandas as pd
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from da_envcheck import ensure_dependencies  # noqa: E402
 
-from da_common import (
+ensure_dependencies()
+
+import pandas as pd  # noqa: E402
+
+from da_common import (  # noqa: E402
+    DataError,
+    cli_guard,
     choose_date_field,
     choose_main_table,
     load_tables,
@@ -55,26 +63,26 @@ def merged_quality_policy(contract: dict | None) -> dict:
 def contract_mappings(contract: dict) -> tuple[dict, str | None]:
     fields = contract.get("fields", {})
     if not isinstance(fields, dict):
-        raise ValueError("语义合同 fields 必须是对象")
+        raise DataError("语义合同 fields 必须是对象")
     metric_fields = contract.get("metric_fields")
     if metric_fields is None:
         metric_fields = {role: field for role, field in fields.items() if role != "date"}
     if not isinstance(metric_fields, dict):
-        raise ValueError("语义合同 metric_fields 必须是对象")
+        raise DataError("语义合同 metric_fields 必须是对象")
     date_field = contract.get("date_field") or fields.get("date")
     if date_field is not None and not isinstance(date_field, str):
-        raise ValueError("语义合同 date_field 必须是字符串")
+        raise DataError("语义合同 date_field 必须是字符串")
     return metric_fields, date_field
 
 
 def quality_gate(profile: dict, data_path: str, contract: dict | None = None) -> dict:
     tables = load_tables(data_path)
     if contract is not None and not isinstance(contract, dict):
-        raise ValueError("语义合同必须是 JSON 对象")
+        raise DataError("语义合同必须是 JSON 对象")
     contract = contract or {}
     main_name = contract.get("main_table") or profile.get("main_table") or choose_main_table(tables)
     if main_name not in tables:
-        raise ValueError(f"找不到主表：{main_name}")
+        raise DataError(f"找不到主表：{main_name}")
     main = tables[main_name]
     policy = merged_quality_policy(contract)
     metric_fields, contract_date_field = contract_mappings(contract)
@@ -207,7 +215,7 @@ def quality_gate(profile: dict, data_path: str, contract: dict | None = None) ->
     }
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description="数据质量门禁")
     parser.add_argument("--profile", required=True)
     parser.add_argument("--data", required=True)
@@ -217,7 +225,8 @@ def main() -> None:
     profile = json.loads(Path(args.profile).read_text(encoding="utf-8"))
     contract = json.loads(Path(args.contract).read_text(encoding="utf-8")) if args.contract else None
     write_json(args.out, quality_gate(profile, args.data, contract))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(cli_guard(main))

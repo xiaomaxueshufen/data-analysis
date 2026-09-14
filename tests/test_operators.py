@@ -76,6 +76,9 @@ RESULTS: list[tuple[str, bool, str]] = []
 
 def check(name: str, condition: bool, detail: str = "") -> None:
     RESULTS.append((name, bool(condition), detail))
+    if not condition:
+        # pytest 只把异常当失败；不抛的话断言失败会被静默吞掉
+        raise AssertionError(f"{name}" + (f" — {detail}" if detail else ""))
 
 
 # ---------------------------------------------------------------- 分布函数
@@ -514,10 +517,14 @@ def main() -> int:
         test_price_elasticity,
         test_error_paths,
     ):
+        before = len(RESULTS)
         try:
             suite()
+        except AssertionError:
+            if len(RESULTS) == before:
+                RESULTS.append((f"{suite.__name__} 断言失败", False, "未记录的 AssertionError"))
         except Exception as error:  # noqa: BLE001
-            check(f"{suite.__name__} 执行异常", False, f"{type(error).__name__}: {error}")
+            RESULTS.append((f"{suite.__name__} 执行异常", False, f"{type(error).__name__}: {error}"))
 
     failed = [item for item in RESULTS if not item[1]]
     for name, ok, detail in RESULTS:

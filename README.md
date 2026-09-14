@@ -14,6 +14,7 @@
 
 ## 能力
 
+- **表内对账**：读原始单元格，用表格自带的「合计 / 小计」行交叉验证每一条明细汇总；对不上就不放行，退出码可直接当流水线闸门。
 - **异动定位**：稳健基线、异常日期、趋势断点、维度定位和机制候选。
 - **漏斗分析**：阶段分母、转化率、流失量、瓶颈和可回收空间。
 - **指标体系**：北极星、结果、过程、诊断、护栏、口径和看板最小集合。
@@ -28,12 +29,12 @@
 - **价格弹性**：log-log 回归 + 反事实测算 + 识别策略门禁（无随机化最多 L1）。
 - **异动断点检测**：季节性调整 + CUSUM + 水平切点（断点位置是数据挑选出来的，实际显著性弱于该数值）。
 - **多重比较校正**：Bonferroni / Holm / BH-FDR；与 `da_verify.py` 的探索性结论警告联动。
-- **报告交付**：单文件离线 HTML。
+- **报告交付**：模型只写紧凑的规格 JSON，`da_report.py` 渲染单文件离线 HTML（苹果风设计系统、纯 SVG 图表、零外部请求）。
 
 ## 设计原则
 
 1. 意图识别由模型完成，不用关键词硬编码替代业务判断。
-2. 关键数字必须可复算：模型可以现场编写一次性分析代码，也可以调用可选算子复核；约束的是“可复核”，不是“必须用哪个脚本”。
+2. 关键数字必须可复算、可对账：模型可以现场编写一次性分析代码，也可以调用可选算子复核；表里有「合计 / 小计」行时，先用 `da_reconcile.py` 拿表自己的校验和交叉验证一遍。约束的是“可复核”，不是“必须用哪个脚本”。
 3. 数据质量是分析门禁。缺失、延迟、字段置空和口径切换会进入排除区。
 4. 相关不等于因果；无法验证的解释写成高置信候选或待验证假设。
 5. 复杂问题优先由 Codex 原生 subagent 机制启动 Locator、Mechanism、Falsifier、Reviewer 四个独立 agent；前三个并行派发，Reviewer 最后执行。自定义 provider 或无原生工具时自动降级为串行隔离回退，绝不伪造 subagent。
@@ -42,7 +43,17 @@
 8. Grill-Me 硬门禁：用户问题模糊时必须先反问再分析，反问轮不生成报告，停下等待回答；用户说“直接分析”才允许带默认假设继续。
 9. 独立角色硬门禁：涉及“为什么/原因/异动”或 L2 及以上解释时，必须完成 Locator/Mechanism/Falsifier/Reviewer 四个角色的独立工件，缺一不可发布。
 10. 执行留痕：每次运行写 `agents/execution.json`，标明 `native_subagents` 或 `serial_fallback`；原生模式必须记录四个 agent id，回退模式必须记录原因。
-11. 离线动效报告：图表用纯 SVG/CSS/原生 JS 实现折线 draw-in、条形 grow-up、数字 count-up 与滚动显现，零外部请求，reduced-motion 与无 JS 均可完整阅读。
+11. 报告渲染与内容分离：模型写规格 JSON，`da_report.py` 负责排版、图表和主题；禁止对数值几何做动画（条形生长 / 折线 draw-in / 数字 count-up 会在截图、打印、后台标签页里冻结成错误读数），只保留不改变几何的滚动显现并带超时兜底。
+12. 渐进式披露：`SKILL.md` 常驻正文压到 5,000 token 以内，并给出「哪一步读哪个文件」的加载表；`references/` 按需读取，`methods/` 与 `industries/` 明确禁止整体加载。
+
+## 参考标准
+
+对账与数字溯源的设计参考了公开的建模规范，而不是任何同类 skill 的实现：
+
+- ICAEW《Financial Modelling Code》—— *Include a master check*（任一检查失败即报警）、*Build traceable references*（每个数字可追回来源）；
+- Twyman's Law —— 看起来有趣或异常的数字，通常是错的。
+
+`da_reconcile.py`、`da_verify.py` 与 `da_report.py` 均为本项目独立实现（与同类项目对照过，除 import 与标点外无相同代码行）。
 
 ## 工作流
 
@@ -56,8 +67,9 @@
     → 意图路由与方法组合
     → 模型自主分析（现场代码 + 可选算子复核）
     → 独立角色分析（Locator/Mechanism/Falsifier/Reviewer 工件）
-    → 结论分级与真实性检查（da_verify）
-    → 模型亲自撰写离线 HTML 报告（outputs/<run>/report.html）
+    → 表内对账（da_reconcile：用合计/小计交叉验证明细）
+    → 结论分级与真实性检查（da_verify：按条目绑定 + 对账联动）
+    → 模型撰写报告规格 JSON，da_report 渲染离线 HTML（outputs/<run>/report.html）
     → 交付前自检：文件存在 + 体积 + 六段式 + 后续建议 + limitations + 降级标注 + 无占位词
 ```
 
@@ -78,9 +90,11 @@ outputs/<run>/
 │   ├── reviewer.json
 │   └── execution.json
 ├── evidence.json
+├── reconcile.json（表内对账结果；表里有合计/小计行时生成）
 ├── claims.json
 ├── variation.json
 ├── da_verify.json（发布前真实性检查结果）
+├── report_spec.json（模型写的报告规格；排版与图表由 da_report 渲染）
 └── report.html
 ```
 
@@ -140,22 +154,38 @@ pip install -r requirements.txt
 - “这份支付成功率为什么下降，做一下漏斗和渠道拆解”
 - “对这份用户数据进行分层，并说明还需要补什么字段”
 
-分析完成后，Codex 会在运行目录 `outputs/<run>/` 中生成逐字段证据 JSON 和离线 HTML 报告（`report.html`），报告可直接用浏览器打开。报告遵循“结论先行、证据可回溯”的原则：数据质量问题会进入排除区，未经验证的同步关系只写成候选解释，不会冒充根因。
+分析完成后，Codex 会在运行目录 `outputs/<run>/` 中生成逐字段证据 JSON、表内对账结果（表里有合计/小计行时）和离线 HTML 报告（`report.html`），报告可直接用浏览器打开。报告遵循“结论先行、证据可回溯”的原则：数据质量问题会进入排除区，未经验证的同步关系只写成候选解释，不会冒充根因。
 
 ## 目录说明
 
-- `SKILL.md`：主流程、停止条件、证据层级和报告要求。
+- `SKILL.md`：主流程、停止条件、证据层级和报告要求；常驻正文 ≈ 4,900 token，内含「哪一步读哪个文件」的渐进式披露加载表。
 - `references/intent-routing.md`：由模型完成的任务路由提示词。
 - `references/clarify.md`：模糊问题的必要追问和默认假设协议。
 - `references/harness.md`：多 agent 的角色提示词、输入隔离、JSON 输出和合并规则。
 - `references/evidence-contract.md`：L0-L4 结论层级和发布门禁。
+- `references/report-design.md`：报告规格 JSON schema、主题与风格可选值、多样性维度、设计纪律与反模式。合并了原 `report-html.md` / `html-report-design.md` / `report-diversity.md`。
 - `references/methods/`：异动、漏斗、指标体系、AB、因果、分层、贡献度、比率拆解、归因、同期群留存、生存/流失、路径分析、价格弹性、断点检测、实验设计与多重比较校正方法包。
 - `references/industries/`：行业口径模板。当前包含通用、零售电商、互联网 SaaS、物流快递、自媒体/内容创作、教育培训、增长与广告投放、互金、互联网游戏、双边平台与市场、本地生活与 O2O 共 11 套；每套都按”适用信号 → 业务链路与统计对象 → KPI（定义/必要字段/禁止推断）→ 数据门禁 → 分析主题 → 行业叙事 → **常见数据陷阱** → 图表 → 降级路径”组织。
-- `scripts/`：表头识别、结构画像、质量门禁、通用分析算子（17 个：`anomaly_scan`、`funnel_rates`、`contribution`、`ratio_decomp`、`ab_effect`、`segment_profile` + `attribution` / `cohort_retention` / `survival` / `path_analysis` / `rfm` / `price_elasticity` / `power_mde` / `srm_check` / `multiple_testing` / `cuped` / `changepoint_scan`）和真实性校验器（`da_verify.py` 已升级：未传 evidence 直接 fail、量纲严格匹配、L2+ 因果措辞必须挂合法 `identification_strategy`、探索性结论警告）。
+- `scripts/`：报告渲染器（`da_report.py`：规格 JSON → 自包含离线 HTML，五套主题、四种 SVG 图表、六段式骨架由代码写死，校验证据引用 / 层级 / 图表类型 / 占位词）、表头识别、结构画像、质量门禁、表内对账（`da_reconcile.py`：读原始单元格，用合计/小计行交叉验证明细，退出码可直接当流水线闸门）、通用分析算子（17 个：`anomaly_scan`、`funnel_rates`、`contribution`、`ratio_decomp`、`ab_effect`、`segment_profile` + `attribution` / `cohort_retention` / `survival` / `path_analysis` / `rfm` / `price_elasticity` / `power_mde` / `srm_check` / `multiple_testing` / `cuped` / `changepoint_scan`）和真实性校验器（`da_verify.py` 0.7.0：数字按 `evidence_ids` 绑定到具体证据条目、对账条目联动拦截、方向与符号一致的量纲匹配、负号与千分位可解析、序号不参与溯源、L2+ 因果措辞漏填识别策略即 fail），以及所有 CLI 共用的启动自检与输入防护（`da_envcheck.py`：缺 numpy / pandas 时给出可执行的安装指引，而不是裸 traceback；`da_common.py`：统一路径校验、坏输入结构化报错、非有限数值写成 `null` 保证 JSON 合法）。
+- `tests/`：不参与运行时的回归测试，全部使用内存合成数据；运行方式和覆盖范围见下面「自检」一节。
 - `examples/`：不参与运行时的示例报告，用于展示交付形态。
+
+## 自检
+
+仓库自带回归测试，全部用内存合成数据，不需要示例数据文件：
+
+```bash
+pip install -r requirements.txt pytest   # pytest 只用于自检，不是 skill 的运行依赖
+python -m pytest tests/ -q               # 5 个模块，68 项
+python tests/test_report.py              # 每个文件也能单独执行，打印逐项 PASS/FAIL
+```
+
+覆盖范围：算子性质（`test_operators`）、表内对账（`test_reconcile`）、报告渲染与规格校验（`test_report`）、
+真实性门禁（`test_verify`）、CLI 健壮性（`test_cli_robustness`：坏输入不抛栈、缺依赖给安装指引、
+17 个算子 × 8 种退化输入只允许「正常返回」或「DataError」）。
 
 ## 验证与降级
 
-项目不携带示例数据或运行缓存；`examples/` 仅保留不参与运行时的展示报告。
+项目不携带示例数据、测试报告或运行缓存；`examples/` 仅保留不参与运行时的展示报告（可读的规格示例 + 它的渲染产物）。
 
 没有时间列、没有基线、没有分子分母、实验 SRM 失败、因果没有可比对照或核心字段被数据质量事故污染时，skill 会停止对应分析或降级为结构画像、质量报告、关联性诊断和实验设计建议。
